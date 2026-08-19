@@ -56,6 +56,13 @@ export type Withdrawal = {
   status: "pending";
 };
 
+export type ClientAddress = {
+  line: string;
+  city: string;
+  state: string;
+  zip: string;
+};
+
 export type Client = {
   id: string;
   name: string;
@@ -64,6 +71,8 @@ export type Client = {
   lastName?: string;
   phone?: string;
   country?: string;
+  address?: ClientAddress;
+  profileVerified?: boolean;
   balanceUsd: number;
   contracts: Contract[];
   txs: Tx[];
@@ -115,6 +124,7 @@ type Ctx = State & {
   buyPlan: (plan: Plan) => { ok: boolean; error?: string };
   payForPlan: (plan: Plan) => { ok: boolean; error?: string };
   setClientBalance: (email: string, balanceUsd: number) => void;
+  setClientAddress: (clientId: string, address: ClientAddress) => void;
   setDockPaused: (email: string, contractId: string, paused: boolean) => void;
   openTicket: (subject: string, body: string) => { ok: boolean; error?: string };
   replyTicket: (id: string, text: string, from: "client" | "admin") => void;
@@ -355,6 +365,8 @@ function snapshotClient(state: State): Client[] {
     lastName: state.user.lastName,
     phone: state.user.phone,
     country: state.user.country,
+    address: existing?.address,
+    profileVerified: existing?.profileVerified,
     balanceUsd: state.balanceUsd,
     contracts,
     txs: state.txs,
@@ -674,6 +686,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setClientAddress = useCallback((clientId: string, address: ClientAddress) => {
+    setState((prev) => ({
+      ...prev,
+      clients: prev.clients.map((c) =>
+        c.id === clientId
+          ? { ...c, address, profileVerified: true }
+          : c,
+      ),
+    }));
+  }, []);
+
   const setDockPaused = useCallback(
     (email: string, contractId: string, paused: boolean) => {
       setState((prev) => {
@@ -769,6 +792,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       buyPlan,
       payForPlan,
       setClientBalance,
+      setClientAddress,
       setDockPaused,
       openTicket,
       replyTicket,
@@ -785,6 +809,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       buyPlan,
       payForPlan,
       setClientBalance,
+      setClientAddress,
       setDockPaused,
       openTicket,
       replyTicket,

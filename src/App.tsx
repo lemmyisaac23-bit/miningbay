@@ -26,6 +26,7 @@ import { AdminLayout } from "./components/AdminLayout";
 import { AdminClients } from "./pages/AdminClients";
 import { AdminDocks } from "./pages/AdminDocks";
 import { AdminTickets } from "./pages/AdminTickets";
+import { ClientAddress } from "./pages/ClientAddress";
 
 export default function App() {
   return (
@@ -62,6 +63,7 @@ export default function App() {
           </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminClients />} />
+            <Route path="clients/:clientId/address" element={<ClientAddress />} />
             <Route path="docks" element={<AdminDocks />} />
             <Route path="balances" element={<Navigate to="/admin/docks" replace />} />
             <Route path="withdraw-log" element={<WithdrawLogPage />} />

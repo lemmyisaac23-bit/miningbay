@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { Check } from "lucide-react";
 import { useAppState } from "../context/AppState";
 
 export function AdminClients() {
@@ -30,7 +32,19 @@ export function AdminClients() {
               <tr key={c.id} className="border-t border-line">
                 <td className="px-4 py-3">
                   <p className="font-display">{c.name}</p>
-                  <p className="text-xs text-mist">{c.email}</p>
+                  {c.profileVerified ? (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-xs font-bold text-emerald-600">
+                      <Check size={12} strokeWidth={3} />
+                      Verified
+                    </p>
+                  ) : (
+                    <Link
+                      to={`/admin/clients/${c.id}/address`}
+                      className="mt-1 inline-flex rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold text-white hover:bg-red-700"
+                    >
+                      Complete profile
+                    </Link>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-mist">{c.phone ?? "—"}</td>
                 <td className="px-4 py-3 text-mist">{c.country ?? "—"}</td>
