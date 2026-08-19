@@ -690,7 +690,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({
       ...prev,
       clients: prev.clients.map((c) =>
-        c.id === clientId
+        c.id === clientId || c.email === clientId
           ? { ...c, address, profileVerified: true }
           : c,
       ),

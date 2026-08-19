@@ -1,4 +1,4 @@
-import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   Wallet,
@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Moon,
   Sun,
+  Check,
   Home,
 } from "lucide-react";
 import { Logo } from "./Logo";
@@ -32,13 +33,16 @@ const NAV = [
 ];
 
 export function DashboardLayout() {
-  const { user, logout, balanceUsd } = useAppState();
+  const { user, logout, balanceUsd, clients } = useAppState();
   const { dark, toggleDark } = useTheme();
   const navigate = useNavigate();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const me = clients.find((c) => c.email === user.email);
+  const verified = Boolean(me?.profileVerified);
 
   return (
     <div className="relative min-h-screen text-ink md:grid md:grid-cols-[240px_1fr]">
@@ -115,7 +119,20 @@ export function DashboardLayout() {
             <span className="mr-3 font-display font-bold text-volt md:hidden">
               {usd(balanceUsd)}
             </span>
-            {user.name} <span className="text-mist">· {user.email}</span>
+            {user.name}{" "}
+            {verified ? (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-xs font-bold text-emerald-600">
+                <Check size={12} strokeWidth={3} />
+                Verified
+              </span>
+            ) : (
+              <Link
+                to="/app/address"
+                className="ml-2 inline-flex rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold text-white hover:bg-red-700"
+              >
+                Complete profile
+              </Link>
+            )}
           </p>
         </div>
         <div className="px-4 py-6 md:px-8 md:py-8">

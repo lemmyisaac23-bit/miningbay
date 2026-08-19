@@ -27,6 +27,7 @@ import { AdminClients } from "./pages/AdminClients";
 import { AdminDocks } from "./pages/AdminDocks";
 import { AdminTickets } from "./pages/AdminTickets";
 import { ClientAddress } from "./pages/ClientAddress";
+import { CompleteProfile } from "./pages/CompleteProfile";
 
 export default function App() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="pay" element={<PayPage />} />
             <Route path="referrals" element={<Referrals />} />
             <Route path="support" element={<Support />} />
+            <Route path="address" element={<CompleteProfile />} />
           </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminClients />} />
