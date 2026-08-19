@@ -45,8 +45,9 @@ export default function App() {
             <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           </Route>
           <Route path="/app" element={<DashboardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="home" element={<AppHome />} />
+            <Route index element={<AppHome />} />
+            <Route path="home" element={<Navigate to="/app" replace />} />
+            <Route path="overview" element={<Dashboard />} />
             <Route path="plans" element={<Plans />} />
             <Route path="portfolio" element={<Portfolio />} />
             <Route path="lanes" element={<Navigate to="/app/portfolio" replace />} />

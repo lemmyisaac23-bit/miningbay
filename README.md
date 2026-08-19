@@ -35,7 +35,7 @@ In the GitHub repo: **Settings → Pages → Source: GitHub Actions**, then add 
 - Marketing site: home, facilities, FAQ
 - Auth: register / sign in (stored in the browser)
 - Dashboard: overview, plans, portfolio, contracts, wallet, referrals
-- New accounts receive a portfolio credit
+- New accounts start with a 0 balance
 - Active contracts stream tiny payouts every few seconds
 
 This is a frontend portfolio. Balances are not on-chain.

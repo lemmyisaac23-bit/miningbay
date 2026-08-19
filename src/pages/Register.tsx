@@ -8,7 +8,7 @@ const field =
   "mt-2 w-full rounded-xl border border-line bg-panel px-3 py-2";
 
 export function Register() {
-  const { login, deposit, adminLogin } = useAppState();
+  const { login, adminLogin } = useAppState();
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
@@ -50,8 +50,7 @@ export function Register() {
       setError(res.error || "Could not create account.");
       return;
     }
-    deposit(250);
-    navigate("/terms");
+    navigate("/app");
   }
 
   return (

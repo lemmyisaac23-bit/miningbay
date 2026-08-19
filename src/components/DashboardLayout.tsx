@@ -20,8 +20,8 @@ import { useTheme } from "../context/Theme";
 import { usd } from "../lib/format";
 
 const NAV = [
-  { to: "/app/home", label: "Home", icon: Home },
-  { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
+  { to: "/app", label: "Home", icon: Home, end: true },
+  { to: "/app/overview", label: "Overview", icon: LayoutDashboard },
   { to: "/app/plans", label: "Plans", icon: Layers },
   { to: "/app/portfolio", label: "Portfolio", icon: Cpu },
   { to: "/app/contracts", label: "Contracts", icon: FileStack },

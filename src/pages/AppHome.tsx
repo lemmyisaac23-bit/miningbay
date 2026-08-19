@@ -26,19 +26,19 @@ const TROPHIES = [
 
 const TEAM = [
   {
-    src: "/home/team-sigrid.png",
+    src: "/home/team-sigrid.jpg",
     name: "Sigrid Holm",
     role: "Hall director",
     body: "Runs Hall A ops, power windows, and every dock that goes live.",
   },
   {
-    src: "/home/team-kwame.png",
+    src: "/home/team-kwame.jpg",
     name: "Kwame Mensah",
     role: "Power and cooling lead",
     body: "Keeps the hydro rail, loops, and meters honest across the campus.",
   },
   {
-    src: "/home/team-hana.png",
+    src: "/home/team-hana.jpg",
     name: "Hana Park",
     role: "Client desk",
     body: "Owns wallets, tickets, and the path from deposit to a live lane.",
@@ -54,8 +54,12 @@ export function AppHome() {
         </p>
         <h1 className="mt-2 font-display text-4xl font-extrabold">Volt Mining Bay</h1>
         <img
-          src="/home/home-bay-few-miners.png"
+          src="/home/home-bay-few-miners.jpg"
           alt="Small Volt Mining Bay hall with a few ASIC docks"
+          width={1280}
+          height={720}
+          fetchPriority="high"
+          decoding="async"
           className="mt-6 h-72 w-full rounded-2xl border border-line object-cover md:h-96"
         />
         <div className="mt-6 space-y-4 leading-relaxed text-mist">
@@ -80,8 +84,12 @@ export function AppHome() {
           Capacity in the hall. Payouts in your wallet.
         </h2>
         <img
-          src="https://images.unsplash.com/photo-1597852074816-d933c7d2b988?auto=format&fit=crop&w=1600&q=80"
+          src="/home/hosted-racks.jpg"
           alt="Dense computing racks"
+          width={1200}
+          height={675}
+          loading="lazy"
+          decoding="async"
           className="mt-6 h-72 w-full rounded-2xl border border-line object-cover md:h-96"
         />
         <div className="mt-6 space-y-4 leading-relaxed text-mist">
@@ -135,6 +143,10 @@ export function AppHome() {
               <img
                 src={m.src}
                 alt={m.name}
+                width={640}
+                height={640}
+                loading="lazy"
+                decoding="async"
                 className="aspect-square w-full object-cover object-top"
               />
               <div className="p-4">
