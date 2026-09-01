@@ -4,11 +4,21 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { PLANS, planDockTotal, planShortfall, type Plan } from "../data/plans";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../data/admin";
+import { supabase, supabaseConfigured } from "../lib/supabase";
+import {
+  authMessage,
+  ensureProfile,
+  hydrateSession,
+  persistAppState,
+  persistNow,
+  schedulePersist,
+} from "../lib/supabaseSync";
 
 const STORAGE_KEY = "vmb-state-v2";
 
@@ -81,6 +91,7 @@ export type Client = {
 };
 
 export type TicketReply = {
+  id?: string;
   from: "client" | "admin";
   text: string;
   at: number;
@@ -97,7 +108,7 @@ export type Ticket = {
   replies: TicketReply[];
 };
 
-type State = {
+export type State = {
   user: User | null;
   admin: boolean;
   balanceUsd: number;
@@ -111,13 +122,19 @@ type State = {
 };
 
 type Ctx = State & {
+  authReady: boolean;
+  supabaseConfigured: boolean;
   login: (
     email: string,
+    password: string,
     name?: string,
     profile?: Profile,
-  ) => { ok: boolean; error?: string };
+  ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
-  adminLogin: (email: string, password: string) => { ok: boolean; error?: string };
+  adminLogin: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   adminLogout: () => void;
   deposit: (amount: number) => void;
   withdraw: (amount: number, address?: string) => boolean;
@@ -321,7 +338,19 @@ function emptySession() {
   };
 }
 
+function emptyBay(): State {
+  return {
+    ...emptySession(),
+    admin: false,
+    clients: [],
+    tickets: [],
+    withdrawals: [],
+    pausedDockIds: [],
+  };
+}
+
 function load(): State {
+  if (supabaseConfigured) return emptyBay();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -380,13 +409,52 @@ function snapshotClient(state: State): Client[] {
 }
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>(() =>
-    typeof window === "undefined" ? load() : load(),
-  );
+  const [state, setState] = useState<State>(load);
+  const [authReady, setAuthReady] = useState(!supabaseConfigured);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
+    if (supabaseConfigured) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    if (!authReady) return;
+    if (!state.user && !state.admin) return;
+    schedulePersist(() => stateRef.current);
+  }, [state, authReady]);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthReady(true);
+      return;
+    }
+    const timeout = window.setTimeout(() => setAuthReady(true), 8000);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "INITIAL_SESSION") return;
+      window.clearTimeout(timeout);
+      void (async () => {
+        const hydrated = await hydrateSession(session);
+        setState((prev) => ({ ...prev, ...hydrated }));
+        setAuthReady(true);
+      })();
+    });
+    const onHide = () => {
+      if (document.visibilityState === "hidden") persistNow(() => stateRef.current);
+    };
+    window.addEventListener("beforeunload", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.clearTimeout(timeout);
+      subscription.unsubscribe();
+      window.removeEventListener("beforeunload", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
 
   useEffect(() => {
     const tick = () => {
@@ -429,89 +497,167 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback((email: string, name?: string, profile?: Profile) => {
-    const normalized = email.trim().toLowerCase();
-    if (normalized === ADMIN_EMAIL) {
-      return { ok: false, error: "Hall ops use the admin door." };
-    }
-    setState((prev) => {
-      const snapped = snapshotClient(prev);
-      const { clients: saved } = settleClients(
-        snapped,
-        Date.now(),
-        collectPausedIds(snapped, prev.pausedDockIds ?? []),
-      );
-      const existing = saved.find((c) => c.email.toLowerCase() === normalized);
-      if (existing) {
+  const login = useCallback(
+    async (
+      email: string,
+      password: string,
+      name?: string,
+      profile?: Profile,
+    ) => {
+      const normalized = email.trim().toLowerCase();
+      if (supabase) {
+        if (normalized === ADMIN_EMAIL && !profile) {
+          return { ok: false, error: "Hall ops use the admin door." };
+        }
+        if (profile) {
+          const { data, error } = await supabase.auth.signUp({
+            email: normalized,
+            password,
+            options: {
+              data: {
+                first_name: profile.firstName,
+                last_name: profile.lastName,
+                phone: profile.phone,
+                country: profile.country,
+              },
+            },
+          });
+          if (error) return { ok: false, error: authMessage(error.message) };
+          if (!data.session || !data.user) {
+            return {
+              ok: false,
+              error: "Check your email to confirm the account, then sign in.",
+            };
+          }
+          await ensureProfile(data.user, {
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            phone: profile.phone,
+            country: profile.country,
+          });
+          const hydrated = await hydrateSession(data.session);
+          setState((prev) => ({ ...prev, ...hydrated }));
+          return { ok: true };
+        }
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalized,
+          password,
+        });
+        if (error) return { ok: false, error: authMessage(error.message) };
+        const hydrated = await hydrateSession(data.session);
+        if (hydrated.admin) {
+          await supabase.auth.signOut();
+          return { ok: false, error: "Hall ops use the admin door." };
+        }
+        setState((prev) => ({ ...prev, ...hydrated }));
+        return { ok: true };
+      }
+      if (normalized === ADMIN_EMAIL) {
+        return { ok: false, error: "Hall ops use the admin door." };
+      }
+      setState((prev) => {
+        const snapped = snapshotClient(prev);
+        const { clients: saved } = settleClients(
+          snapped,
+          Date.now(),
+          collectPausedIds(snapped, prev.pausedDockIds ?? []),
+        );
+        const existing = saved.find((c) => c.email.toLowerCase() === normalized);
+        if (existing) {
+          return {
+            ...prev,
+            clients: saved,
+            pausedDockIds: collectPausedIds(saved, prev.pausedDockIds ?? []),
+            user: {
+              name: existing.name,
+              email: existing.email,
+              firstName: existing.firstName,
+              lastName: existing.lastName,
+              phone: existing.phone,
+              country: existing.country,
+            },
+            balanceUsd: existing.balanceUsd,
+            contracts: existing.contracts,
+            txs: existing.txs,
+            referralCode: existing.referralCode,
+          };
+        }
+        const fresh: Client = {
+          id: uid("cli"),
+          name: name || normalized.split("@")[0],
+          email: normalized,
+          firstName: profile?.firstName,
+          lastName: profile?.lastName,
+          phone: profile?.phone,
+          country: profile?.country,
+          balanceUsd: 0,
+          contracts: [],
+          txs: [],
+          referralCode: `VOLT-${normalized.slice(0, 3).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+          joinedAt: Date.now(),
+        };
         return {
           ...prev,
-          clients: saved,
-          pausedDockIds: collectPausedIds(saved, prev.pausedDockIds ?? []),
+          clients: [fresh, ...saved],
           user: {
-            name: existing.name,
-            email: existing.email,
-            firstName: existing.firstName,
-            lastName: existing.lastName,
-            phone: existing.phone,
-            country: existing.country,
+            name: fresh.name,
+            email: fresh.email,
+            firstName: fresh.firstName,
+            lastName: fresh.lastName,
+            phone: fresh.phone,
+            country: fresh.country,
           },
-          balanceUsd: existing.balanceUsd,
-          contracts: existing.contracts,
-          txs: existing.txs,
-          referralCode: existing.referralCode,
+          balanceUsd: 0,
+          contracts: [],
+          txs: [],
+          referralCode: fresh.referralCode,
         };
-      }
-      const fresh: Client = {
-        id: uid("cli"),
-        name: name || normalized.split("@")[0],
-        email: normalized,
-        firstName: profile?.firstName,
-        lastName: profile?.lastName,
-        phone: profile?.phone,
-        country: profile?.country,
-        balanceUsd: 0,
-        contracts: [],
-        txs: [],
-        referralCode: `VOLT-${normalized.slice(0, 3).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-        joinedAt: Date.now(),
-      };
-      return {
-        ...prev,
-        clients: [fresh, ...saved],
-        user: {
-          name: fresh.name,
-          email: fresh.email,
-          firstName: fresh.firstName,
-          lastName: fresh.lastName,
-          phone: fresh.phone,
-          country: fresh.country,
-        },
-        balanceUsd: 0,
-        contracts: [],
-        txs: [],
-        referralCode: fresh.referralCode,
-      };
-    });
-    return { ok: true };
-  }, []);
+      });
+      return { ok: true };
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
-    setState((prev) => {
+    void (async () => {
+      const prev = stateRef.current;
       const snapped = snapshotClient(prev);
       const { clients } = settleClients(
         snapped,
         Date.now(),
         collectPausedIds(snapped, prev.pausedDockIds ?? []),
       );
-      return { ...prev, ...emptySession(), clients };
-    });
+      const flushed = { ...prev, clients };
+      await persistAppState(flushed);
+      await supabase?.auth.signOut();
+      setState({
+        ...flushed,
+        ...emptySession(),
+        admin: false,
+        clients: supabaseConfigured ? [] : clients,
+        tickets: supabaseConfigured ? [] : flushed.tickets,
+        withdrawals: supabaseConfigured ? [] : flushed.withdrawals,
+      });
+    })();
   }, []);
 
-  const adminLogin = useCallback((email: string, password: string) => {
-    if (
-      email.trim().toLowerCase() === ADMIN_EMAIL &&
-      password === ADMIN_PASSWORD
-    ) {
+  const adminLogin = useCallback(async (email: string, password: string) => {
+    const normalized = email.trim().toLowerCase();
+    if (supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalized,
+        password,
+      });
+      if (error) return { ok: false, error: authMessage(error.message) };
+      const hydrated = await hydrateSession(data.session);
+      if (!hydrated.admin) {
+        await supabase.auth.signOut();
+        return { ok: false, error: "Hall ops credentials were rejected." };
+      }
+      setState((prev) => ({ ...prev, ...hydrated }));
+      return { ok: true };
+    }
+    if (normalized === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       setState((prev) => ({ ...prev, admin: true }));
       return { ok: true };
     }
@@ -519,7 +665,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const adminLogout = useCallback(() => {
-    setState((prev) => ({ ...prev, admin: false }));
+    void (async () => {
+      await persistAppState(stateRef.current);
+      await supabase?.auth.signOut();
+      setState((prev) => ({
+        ...prev,
+        ...emptySession(),
+        admin: false,
+        clients: supabaseConfigured ? [] : prev.clients,
+        tickets: supabaseConfigured ? [] : prev.tickets,
+        withdrawals: supabaseConfigured ? [] : prev.withdrawals,
+      }));
+    })();
   }, []);
 
   const deposit = useCallback((amount: number) => {
@@ -764,7 +921,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             ? {
                 ...t,
                 status: "open",
-                replies: [...t.replies, { from, text, at: Date.now() }],
+                replies: [...t.replies, { id: uid("trp"), from, text, at: Date.now() }],
               }
             : t,
         ),
@@ -783,6 +940,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       ...state,
+      authReady,
+      supabaseConfigured,
       login,
       logout,
       adminLogin,
@@ -800,6 +959,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      authReady,
       login,
       logout,
       adminLogin,

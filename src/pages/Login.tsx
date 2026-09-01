@@ -4,29 +4,36 @@ import { useAppState } from "../context/AppState";
 import { ADMIN_EMAIL } from "../data/admin";
 
 export function Login() {
-  const { login, adminLogin } = useAppState();
+  const { login, adminLogin, supabaseConfigured } = useAppState();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const hall = adminLogin(email, password);
-    if (hall.ok) {
-      navigate("/admin");
-      return;
+    setBusy(true);
+    setError(null);
+    try {
+      const hall = await adminLogin(email, password);
+      if (hall.ok) {
+        navigate("/admin");
+        return;
+      }
+      if (email.trim().toLowerCase() === ADMIN_EMAIL) {
+        setError(hall.error || "Email or password is incorrect.");
+        return;
+      }
+      const res = await login(email, password);
+      if (!res.ok) {
+        setError(res.error || "Could not sign in.");
+        return;
+      }
+      navigate("/app");
+    } finally {
+      setBusy(false);
     }
-    if (email.trim().toLowerCase() === ADMIN_EMAIL) {
-      setError("Email or password is incorrect.");
-      return;
-    }
-    const res = login(email);
-    if (!res.ok) {
-      setError(res.error || "Could not sign in.");
-      return;
-    }
-    navigate("/app");
   }
 
   return (
@@ -66,10 +73,17 @@ export function Login() {
         )}
         <button
           type="submit"
-          className="w-full rounded-full bg-volt py-3 text-sm font-semibold text-foam"
+          disabled={busy}
+          className="w-full rounded-full bg-volt py-3 text-sm font-semibold text-foam disabled:opacity-60"
         >
-          Enter the hall
+          {busy ? "Signing in…" : "Enter the hall"}
         </button>
+        {!supabaseConfigured && (
+          <p className="text-xs text-mist">
+            Running locally. Add Supabase keys in `.env.local` to save accounts
+            in the cloud.
+          </p>
+        )}
       </form>
       <p className="mt-4 text-sm text-mist">
         New here?{" "}

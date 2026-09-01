@@ -11,8 +11,16 @@ const NAV = [
 ];
 
 export function AdminLayout() {
-  const { admin, adminLogout, clients, tickets } = useAppState();
+  const { admin, adminLogout, clients, tickets, authReady } = useAppState();
   const navigate = useNavigate();
+
+  if (!authReady) {
+    return (
+      <div className="grid min-h-screen place-items-center text-sm text-mist">
+        Loading the bay…
+      </div>
+    );
+  }
 
   if (!admin) {
     return <Navigate to="/login" replace />;

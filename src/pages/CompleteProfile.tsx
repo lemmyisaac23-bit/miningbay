@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAppState } from "../context/AppState";
 
@@ -6,7 +6,7 @@ const field =
   "mt-2 w-full rounded-xl border border-white/15 bg-[#1a2233] px-3 py-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-[#f5b942]";
 
 export function CompleteProfile() {
-  const { user, clients, setClientAddress } = useAppState();
+  const { user, clients, setClientAddress, authReady } = useAppState();
   const navigate = useNavigate();
   const me = clients.find((c) => c.email === user?.email);
 
@@ -14,6 +14,22 @@ export function CompleteProfile() {
   const [region, setRegion] = useState(me?.address?.state ?? "");
   const [zip, setZip] = useState(me?.address?.zip ?? "");
   const [city, setCity] = useState(me?.address?.city ?? "");
+
+  useEffect(() => {
+    if (!me) return;
+    setLine(me.address?.line ?? "");
+    setRegion(me.address?.state ?? "");
+    setZip(me.address?.zip ?? "");
+    setCity(me.address?.city ?? "");
+  }, [me?.id]);
+
+  if (!authReady) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center text-sm text-mist">
+        Loading the bay…
+      </div>
+    );
+  }
 
   if (!user || !me) {
     return <Navigate to="/login" replace />;
@@ -47,17 +63,17 @@ export function CompleteProfile() {
             className={field}
           />
         </label>
+        <label className="mt-4 block text-sm text-white/70">
+          State/Province/County
+          <input
+            required
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder="State/Province/County"
+            className={field}
+          />
+        </label>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <label className="block text-sm text-white/70">
-            State
-            <input
-              required
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="State"
-              className={field}
-            />
-          </label>
           <label className="block text-sm text-white/70">
             Zip Code
             <input
@@ -68,8 +84,6 @@ export function CompleteProfile() {
               className={field}
             />
           </label>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="block text-sm text-white/70">
             City
             <input

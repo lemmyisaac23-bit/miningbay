@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAppState } from "../context/AppState";
 
@@ -7,7 +7,7 @@ const field =
 
 export function ClientAddress() {
   const { clientId } = useParams();
-  const { clients, setClientAddress } = useAppState();
+  const { clients, setClientAddress, authReady } = useAppState();
   const navigate = useNavigate();
   const client = clients.find((c) => c.id === clientId);
 
@@ -15,6 +15,22 @@ export function ClientAddress() {
   const [state, setState] = useState(client?.address?.state ?? "");
   const [zip, setZip] = useState(client?.address?.zip ?? "");
   const [city, setCity] = useState(client?.address?.city ?? "");
+
+  useEffect(() => {
+    if (!client) return;
+    setLine(client.address?.line ?? "");
+    setState(client.address?.state ?? "");
+    setZip(client.address?.zip ?? "");
+    setCity(client.address?.city ?? "");
+  }, [client?.id]);
+
+  if (!authReady) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center text-sm text-mist">
+        Loading the bay…
+      </div>
+    );
+  }
 
   if (!client) {
     return <Navigate to="/admin" replace />;
@@ -53,17 +69,17 @@ export function ClientAddress() {
             className={field}
           />
         </label>
+        <label className="mt-4 block text-sm text-white/70">
+          State/Province/County
+          <input
+            required
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            placeholder="State/Province/County"
+            className={field}
+          />
+        </label>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <label className="block text-sm text-white/70">
-            State
-            <input
-              required
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-              placeholder="State"
-              className={field}
-            />
-          </label>
           <label className="block text-sm text-white/70">
             Zip Code
             <input
@@ -74,8 +90,6 @@ export function ClientAddress() {
               className={field}
             />
           </label>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="block text-sm text-white/70">
             City
             <input

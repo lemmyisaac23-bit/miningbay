@@ -33,9 +33,17 @@ const NAV = [
 ];
 
 export function DashboardLayout() {
-  const { user, logout, balanceUsd, clients } = useAppState();
+  const { user, logout, balanceUsd, clients, authReady } = useAppState();
   const { dark, toggleDark } = useTheme();
   const navigate = useNavigate();
+
+  if (!authReady) {
+    return (
+      <div className="grid min-h-screen place-items-center text-sm text-mist">
+        Loading the bay…
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;

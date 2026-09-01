@@ -8,7 +8,7 @@ const field =
   "mt-2 w-full rounded-xl border border-line bg-panel px-3 py-2";
 
 export function Register() {
-  const { login, adminLogin } = useAppState();
+  const { login, adminLogin, supabaseConfigured } = useAppState();
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
@@ -19,8 +19,9 @@ export function Register() {
   const [confirm, setConfirm] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
       setError("Set password and confirm password must match.");
@@ -30,27 +31,33 @@ export function Register() {
       setError("Agree to the terms and conditions to continue.");
       return;
     }
-    const hall = adminLogin(email, password);
-    if (hall.ok) {
-      navigate("/admin");
-      return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (email.trim().toLowerCase() === ADMIN_EMAIL) {
+        const hall = await adminLogin(email, password);
+        if (hall.ok) {
+          navigate("/admin");
+          return;
+        }
+        setError(hall.error || "Email or password is incorrect.");
+        return;
+      }
+      const fullName = `${firstName.trim()} ${secondName.trim()}`.trim();
+      const res = await login(email, password, fullName, {
+        firstName: firstName.trim(),
+        lastName: secondName.trim(),
+        phone: phone.trim(),
+        country,
+      });
+      if (!res.ok) {
+        setError(res.error || "Could not create account.");
+        return;
+      }
+      navigate("/app");
+    } finally {
+      setBusy(false);
     }
-    if (email.trim().toLowerCase() === ADMIN_EMAIL) {
-      setError("Email or password is incorrect.");
-      return;
-    }
-    const fullName = `${firstName.trim()} ${secondName.trim()}`.trim();
-    const res = login(email, fullName, {
-      firstName: firstName.trim(),
-      lastName: secondName.trim(),
-      phone: phone.trim(),
-      country,
-    });
-    if (!res.ok) {
-      setError(res.error || "Could not create account.");
-      return;
-    }
-    navigate("/app");
   }
 
   return (
@@ -169,10 +176,17 @@ export function Register() {
         )}
         <button
           type="submit"
-          className="w-full rounded-full bg-volt py-3 text-sm font-semibold text-foam"
+          disabled={busy}
+          className="w-full rounded-full bg-volt py-3 text-sm font-semibold text-foam disabled:opacity-60"
         >
-          Open bay account
+          {busy ? "Opening account…" : "Open bay account"}
         </button>
+        {!supabaseConfigured && (
+          <p className="text-xs text-mist">
+            Running locally. Add Supabase keys in `.env.local` to save accounts
+            in the cloud.
+          </p>
+        )}
       </form>
       <p className="mt-4 text-sm text-mist">
         Already docked?{" "}
