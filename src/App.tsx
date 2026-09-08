@@ -28,6 +28,7 @@ import { AdminDocks } from "./pages/AdminDocks";
 import { AdminTickets } from "./pages/AdminTickets";
 import { ClientAddress } from "./pages/ClientAddress";
 import { CompleteProfile } from "./pages/CompleteProfile";
+import { TelegramFloat } from "./components/TelegramFloat";
 
 export default function App() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <TelegramFloat />
       </BrowserRouter>
       </AppStateProvider>
     </ThemeProvider>

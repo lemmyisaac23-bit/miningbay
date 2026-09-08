@@ -27,7 +27,7 @@ The live site stays on GitHub Pages. Supabase holds sign-in and bay data (profil
    - Redirect URLs: `https://voltminingbay.com/**` and `http://localhost:5173/**`
 5. **Authentication → Users → Add user**
    - Email: `voltminingbay@gmail.com`
-   - Password: the hall ops password you will use to sign in
+   - Password: the hall leads password you will use to sign in
 6. In SQL Editor run:
 
 ```sql
@@ -80,4 +80,4 @@ In the GitHub repo: **Settings → Pages → Source: GitHub Actions**, then add 
 - New accounts start with a 0 balance
 - Active contracts stream tiny payouts every few seconds
 
-This is a frontend portfolio. Crypto deposits stay pending until hall ops credit the wallet.
+This is a frontend portfolio. Crypto deposits stay pending until hall leads credit the wallet.

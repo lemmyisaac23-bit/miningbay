@@ -20,7 +20,7 @@ export function Terms() {
           <h2 className="font-display text-xl text-foam">1. The bay</h2>
           <p className="mt-2">
             Volt Mining Bay leases hosted ASIC, GPU, and CPU capacity. You buy a
-            contract. We run power, cooling, and hall operations. Hashpower stays
+            contract. We run power, cooling, and hall leads. Hashpower stays
             in our facilities.
           </p>
         </section>
@@ -59,7 +59,7 @@ export function Terms() {
         <section>
           <h2 className="font-display text-xl text-foam">6. Contact</h2>
           <p className="mt-2">
-            Questions go to hall ops through your bay Support desk on
+            Questions go to hall leads through your bay Support desk on
             voltminingbay.com.
           </p>
         </section>

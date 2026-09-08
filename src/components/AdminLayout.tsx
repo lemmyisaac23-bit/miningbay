@@ -36,7 +36,7 @@ export function AdminLayout() {
             <Logo />
           </NavLink>
           <p className="mt-3 inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-copper">
-            <Shield size={12} /> Hall ops
+            <Shield size={12} /> Hall leads
           </p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col">
@@ -77,7 +77,7 @@ export function AdminLayout() {
       </aside>
       <div>
         <div className="border-b border-line bg-white px-4 py-3 md:px-8">
-          <p className="text-sm text-mist">Volt Mining Bay · operations console</p>
+          <p className="text-sm text-mist">Volt Mining Bay · leads console</p>
         </div>
         <div className="px-4 py-6 md:px-8 md:py-8">
           <Outlet />

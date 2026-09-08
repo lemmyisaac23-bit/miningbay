@@ -13,7 +13,7 @@ export const FAQS = [
   },
   {
     q: "What does the contract price cover?",
-    a: "Hardware time, electricity, cooling, and ops. There is no extra power bill. When the term ends, the lane is released back to the bay.",
+    a: "Hardware time, electricity, cooling, and leads. There is no extra power bill. When the term ends, the lane is released back to the bay.",
   },
   {
     q: "Can I withdraw anytime?",

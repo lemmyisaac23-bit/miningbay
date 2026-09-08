@@ -91,7 +91,7 @@ export function Home() {
             {
               icon: Shield,
               title: "All-in power",
-              body: "Contract price includes electricity and ops. No surprise kilowatt invoices after you dock.",
+              body: "Contract price includes electricity and leads. No surprise kilowatt invoices after you dock.",
             },
           ].map((item) => (
             <div key={item.title}>

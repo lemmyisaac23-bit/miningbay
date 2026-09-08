@@ -8,8 +8,8 @@
 --      Redirect URLs: https://voltminingbay.com/**  and  http://localhost:5173/**
 -- 3. Authentication → Users → Add user
 --      email: voltminingbay@gmail.com
---      password: the hall ops password you will use to sign in
--- 4. Run this once so that user is hall ops:
+--      password: the hall leads password you will use to sign in
+-- 4. Run this once so that user is hall leads:
 --      update public.profiles set role = 'admin' where email = 'voltminingbay@gmail.com';
 
 create table if not exists public.profiles (

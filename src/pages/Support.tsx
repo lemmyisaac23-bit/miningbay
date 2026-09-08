@@ -19,7 +19,7 @@ export function Support() {
     }
     setSubject("");
     setBody("");
-    setMsg("Ticket sent to hall ops.");
+    setMsg("Ticket sent to hall leads.");
   }
 
   const active = mine.find((t) => t.id === openId) ?? mine[0];
@@ -29,7 +29,7 @@ export function Support() {
       <p className="font-display text-xs uppercase tracking-[0.22em] text-volt">
         Support
       </p>
-      <h1 className="mt-2 font-display text-4xl">Talk to hall ops</h1>
+      <h1 className="mt-2 font-display text-4xl">Talk to hall leads</h1>
       <form
         onSubmit={onCreate}
         className="mt-8 max-w-lg space-y-4 rounded-2xl border border-line bg-panel/80 p-6"

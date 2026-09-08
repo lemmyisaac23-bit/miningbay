@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bitcoin, Coins, CreditCard, Hexagon, Sun, Wallet } from "lucide-react";
 import { useAppState } from "../context/AppState";
 import { PLANS, planDockTotal, planProfit, planProfitBtc, planShortfall } from "../data/plans";
-import { btc, coin, usd } from "../lib/format";
+import { btc, coin, planTerm, usd } from "../lib/format";
 import { Logo } from "../components/Logo";
 import { CryptoPayPanel } from "../components/CryptoPayPanel";
 import { payTarget } from "../data/payments";
@@ -105,7 +105,7 @@ export function PayPage() {
         <h1 className="mt-3 font-display text-4xl font-extrabold">Deposit pending</h1>
         <p className="mt-3 text-mist">
           Your {chain?.ticker ?? "crypto"} payment is waiting on confirmation.
-          The lane docks after hall ops credit the wallet.
+          The lane docks after hall leads credit the wallet.
         </p>
         <button
           type="button"
@@ -152,8 +152,8 @@ export function PayPage() {
       </p>
       <h1 className="mt-2 font-display text-4xl">Clear the lane. Dock it.</h1>
       <p className="mt-3 text-mist">
-        {selected.name} · {selected.hashrate} {selected.unit} · {selected.days}{" "}
-        days
+        {selected.name} · {selected.hashrate} {selected.unit} ·{" "}
+        {planTerm(selected.days)}
       </p>
 
       <div className="glow-volt mt-8 rounded-2xl border border-volt/50 bg-panel/85 p-6 backdrop-blur-md sm:p-8">

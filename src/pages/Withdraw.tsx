@@ -52,7 +52,7 @@ export function WithdrawPage() {
           Withdrawal submitted
         </h1>
         <p className="mt-3 text-mist">
-          Hall ops will send the funds to your wallet after review.
+          Hall leads will send the funds to your wallet after review.
         </p>
         <button
           type="button"

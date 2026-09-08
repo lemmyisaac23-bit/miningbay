@@ -39,7 +39,7 @@ export function AdminDocks() {
       </p>
       <h1 className="mt-2 font-display text-4xl">Stop, activate, and credit</h1>
       <p className="mt-3 text-mist">
-        A stopped lane earns nothing until hall ops activate it. Edit a client
+        A stopped lane earns nothing until hall leads activate it. Edit a client
         wallet from the same console.
       </p>
 

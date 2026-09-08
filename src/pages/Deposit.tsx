@@ -106,7 +106,7 @@ export function DepositPage() {
         <h1 className="mt-3 font-display text-4xl font-extrabold">Deposit pending</h1>
         <p className="mt-3 text-mist">
           Your {chain?.ticker ?? "crypto"} payment is waiting on confirmation.
-          Hall ops will credit the USD wallet once the transfer clears.
+          Hall leads will credit the USD wallet once the transfer clears.
         </p>
         <button
           type="button"
@@ -148,9 +148,11 @@ export function DepositPage() {
           <h1 className="font-display text-3xl sm:text-4xl">
             Deposit on Your USD Wallet
           </h1>
-          <p className="mt-2 text-mist">
-            Select a crypto gateway and enter the amount you want to add
+          <p className="mt-2 text-mist">Select a crypto gateway.</p>
+          <p className="mt-2 text-sm font-semibold text-copper">
+            The minimum deposit is $150.
           </p>
+          <p className="mt-2 text-mist">Enter the amount you want to add.</p>
         </div>
         <p className="inline-flex shrink-0 items-center gap-2 text-sm text-copper">
           <Shield size={16} />

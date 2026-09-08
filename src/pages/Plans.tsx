@@ -12,7 +12,7 @@ export function Plans() {
           Pick a lane. Dock it.
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-mist">
-          Lease hosted hashpower by the lane. Power, cooling, and ops stay in
+          Lease hosted hashpower by the lane. Power, cooling, and leads stay in
           the hall.
         </p>
       </div>

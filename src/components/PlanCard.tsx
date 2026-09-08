@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { type Plan, planProfit, planProfitBtc } from "../data/plans";
-import { btc, usd } from "../lib/format";
+import { btc, planTerm, usd } from "../lib/format";
 
 export function PlanCard({
   plan,
@@ -39,12 +39,12 @@ export function PlanCard({
           {usd(plan.priceUsd, 0)}
         </p>
         <p className="mt-1 text-sm text-mist">
-          {plan.hashrate} {plan.unit} · {plan.days} days
+          {plan.hashrate} {plan.unit} · {planTerm(plan.days)}
         </p>
         <dl className="mt-5 space-y-2 text-left text-sm">
           <div className="rounded-lg bg-[#f4f8ff] px-3 py-2">
             <dt className="text-xs uppercase tracking-[0.14em] text-mist">Term</dt>
-            <dd className="font-display text-lg">{plan.days} days</dd>
+            <dd className="font-display text-lg">{planTerm(plan.days)}</dd>
           </div>
           <div className="rounded-lg bg-[#f4f8ff] px-3 py-2">
             <dt className="text-xs uppercase tracking-[0.14em] text-mist">Profit</dt>

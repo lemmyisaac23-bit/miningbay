@@ -20,7 +20,7 @@ const TROPHIES = [
     lines: ["BEST RELIABLE", "CLOUD MINING", "LEASING CO"],
     title: "Best Reliable Cloud Mining Leasing Co",
     year: "2025",
-    body: "Honored for contract uptime, on-site ops, and lanes that stay docked as leased.",
+    body: "Honored for contract uptime, on-site leads, and lanes that stay docked as leased.",
   },
 ];
 
@@ -29,7 +29,7 @@ const TEAM = [
     src: "/home/team-sigrid.jpg",
     name: "Sigrid Holm",
     role: "Hall director",
-    body: "Runs Hall A ops, power windows, and every dock that goes live.",
+    body: "Runs Hall A leads, power windows, and every dock that goes live.",
   },
   {
     src: "/home/team-kwame.jpg",
@@ -70,7 +70,7 @@ export function AppHome() {
           </p>
           <p>
             The bay is built for clients who want a contract, a wallet, and daily
-            payouts without owning hardware. Hall ops meter every lane. You dock,
+            payouts without owning hardware. Hall leads meter every lane. You dock,
             we keep the current live.
           </p>
         </div>
@@ -102,7 +102,7 @@ export function AppHome() {
           <p>
             This is not a home miner you plug in yourself. It is industrial
             capacity on hydro rail. When a contract ends, the lane undocks. When
-            hall ops stop a dock, it stops mining until they activate it again.
+            hall leads stop a dock, it stops mining until they activate it again.
           </p>
         </div>
       </section>

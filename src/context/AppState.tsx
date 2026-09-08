@@ -214,7 +214,7 @@ function seedTickets(): Ticket[] {
       email: "ada@bay.io",
       name: "Ada Harbor",
       subject: "Harbor lane payout timing",
-      body: "My Harbor contract is live but the first credit looks late. Can hall ops check Hall A metering?",
+      body: "My Harbor contract is live but the first credit looks late. Can hall leads check Hall A metering?",
       status: "open",
       createdAt: now - 14_400_000,
       replies: [],
@@ -507,7 +507,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const normalized = email.trim().toLowerCase();
       if (supabase) {
         if (normalized === ADMIN_EMAIL && !profile) {
-          return { ok: false, error: "Hall ops use the admin door." };
+          return { ok: false, error: "Hall leads use the admin door." };
         }
         if (profile) {
           const { data, error } = await supabase.auth.signUp({
@@ -547,13 +547,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const hydrated = await hydrateSession(data.session);
         if (hydrated.admin) {
           await supabase.auth.signOut();
-          return { ok: false, error: "Hall ops use the admin door." };
+          return { ok: false, error: "Hall leads use the admin door." };
         }
         setState((prev) => ({ ...prev, ...hydrated }));
         return { ok: true };
       }
       if (normalized === ADMIN_EMAIL) {
-        return { ok: false, error: "Hall ops use the admin door." };
+        return { ok: false, error: "Hall leads use the admin door." };
       }
       setState((prev) => {
         const snapped = snapshotClient(prev);
@@ -652,7 +652,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const hydrated = await hydrateSession(data.session);
       if (!hydrated.admin) {
         await supabase.auth.signOut();
-        return { ok: false, error: "Hall ops credentials were rejected." };
+        return { ok: false, error: "Hall leads credentials were rejected." };
       }
       setState((prev) => ({ ...prev, ...hydrated }));
       return { ok: true };
@@ -661,7 +661,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setState((prev) => ({ ...prev, admin: true }));
       return { ok: true };
     }
-    return { ok: false, error: "Hall ops credentials were rejected." };
+    return { ok: false, error: "Hall leads credentials were rejected." };
   }, []);
 
   const adminLogout = useCallback(() => {
@@ -824,7 +824,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ...c,
           balanceUsd,
           txs: [
-            makeTx("adjust", "Hall ops balance edit", delta),
+            makeTx("adjust", "Hall leads balance edit", delta),
             ...c.txs,
           ].slice(0, 40),
         };
@@ -834,7 +834,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ? {
               balanceUsd,
               txs: [
-                makeTx("adjust", "Hall ops balance edit", balanceUsd - prev.balanceUsd),
+                makeTx("adjust", "Hall leads balance edit", balanceUsd - prev.balanceUsd),
                 ...prev.txs,
               ].slice(0, 40),
             }

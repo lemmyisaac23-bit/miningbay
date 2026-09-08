@@ -19,3 +19,7 @@ export function coin(n: number, ticker: string) {
 export function daysLeft(endsAt: number) {
   return Math.max(0, Math.ceil((endsAt - Date.now()) / 86_400_000));
 }
+
+export function planTerm(days: number) {
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}

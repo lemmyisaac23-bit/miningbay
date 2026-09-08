@@ -84,7 +84,7 @@ export function AdminTickets() {
                 onChange={(e) => setReply(e.target.value)}
                 rows={3}
                 className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm"
-                placeholder="Reply as hall ops"
+                placeholder="Reply as hall leads"
               />
               <button
                 type="submit"
