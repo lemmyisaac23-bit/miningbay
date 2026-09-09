@@ -1,12 +1,11 @@
 import { useState } from "react";
 
-const BTC_PER_TH_DAY = 0.0044;
+const BTC_PER_DAY = 0.616;
 const MIN_TH = 12;
 const MAX_TH = 500;
 
 export function MineEstimator() {
   const [th, setTh] = useState(140);
-  const btc = th * BTC_PER_TH_DAY;
   const pct = ((th - MIN_TH) / (MAX_TH - MIN_TH)) * 100;
 
   return (
@@ -14,7 +13,7 @@ export function MineEstimator() {
       <p className="text-sm text-mist">You can mine</p>
       <p className="mt-1 flex flex-wrap items-baseline gap-2">
         <span className="font-display text-3xl text-volt md:text-4xl">
-          {btc.toFixed(4)}
+          {BTC_PER_DAY.toFixed(4)}
         </span>
         <span className="text-lg text-foam">BTC / Day</span>
       </p>
