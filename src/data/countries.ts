@@ -56,4 +56,5 @@ export const COUNTRIES = [
   "United Kingdom",
   "United States",
   "Vietnam",
+  "Zambia",
 ];
