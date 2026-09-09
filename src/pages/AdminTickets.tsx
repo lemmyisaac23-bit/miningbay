@@ -1,17 +1,39 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useAppState } from "../context/AppState";
 
 export function AdminTickets() {
-  const { tickets, replyTicket, setTicketStatus } = useAppState();
-  const [activeId, setActiveId] = useState(tickets[0]?.id ?? "");
+  const { tickets, replyTicket, setTicketStatus, refreshTickets } = useAppState();
+  const [activeId, setActiveId] = useState("");
   const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ticket = tickets.find((t) => t.id === activeId) ?? tickets[0];
 
-  function onReply(e: FormEvent) {
+  useEffect(() => {
+    void refreshTickets();
+    const id = window.setInterval(() => {
+      void refreshTickets();
+    }, 8000);
+    return () => window.clearInterval(id);
+  }, [refreshTickets]);
+
+  useEffect(() => {
+    if (!activeId && tickets[0]) setActiveId(tickets[0].id);
+  }, [tickets, activeId]);
+
+  async function onReply(e: FormEvent) {
     e.preventDefault();
     if (!ticket || !reply.trim()) return;
-    replyTicket(ticket.id, reply.trim(), "admin");
+    setBusy(true);
+    setError(null);
+    const res = await replyTicket(ticket.id, reply.trim(), "admin");
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error || "Could not send this reply.");
+      return;
+    }
     setReply("");
+    void refreshTickets();
   }
 
   return (
@@ -20,16 +42,25 @@ export function AdminTickets() {
         Support
       </p>
       <h1 className="mt-2 font-display text-4xl">Tickets</h1>
+      <p className="mt-3 text-mist">
+        Client messages land here. Open a ticket and send a reply — they will see
+        it on Support.
+      </p>
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]">
         <ul className="divide-y divide-line rounded-2xl border border-line bg-panel/80">
           {tickets.length === 0 && (
-            <li className="px-4 py-6 text-sm text-mist">No tickets yet.</li>
+            <li className="px-4 py-6 text-sm text-mist">
+              No tickets yet. When a client writes from Support, it shows here.
+            </li>
           )}
           {tickets.map((t) => (
             <li key={t.id}>
               <button
                 type="button"
-                onClick={() => setActiveId(t.id)}
+                onClick={() => {
+                  setActiveId(t.id);
+                  setError(null);
+                }}
                 className={`block w-full px-4 py-3 text-left ${
                   ticket?.id === t.id ? "bg-raised" : ""
                 }`}
@@ -68,7 +99,7 @@ export function AdminTickets() {
             <div className="mt-6 space-y-3">
               {ticket.replies.map((r, i) => (
                 <div
-                  key={`${r.at}-${i}`}
+                  key={r.id ?? `${r.at}-${i}`}
                   className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
                 >
                   <p className="text-xs uppercase tracking-[0.16em] text-mist">
@@ -86,11 +117,17 @@ export function AdminTickets() {
                 className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm"
                 placeholder="Reply as hall leads"
               />
+              {error && (
+                <p className="rounded-xl border border-copper/40 bg-copper/10 px-3 py-2 text-sm">
+                  {error}
+                </p>
+              )}
               <button
                 type="submit"
-                className="rounded-full bg-copper px-5 py-2 text-sm font-semibold text-ink"
+                disabled={busy || !reply.trim()}
+                className="rounded-full bg-copper px-5 py-2 text-sm font-semibold text-ink disabled:opacity-60"
               >
-                Send reply
+                {busy ? "Sending…" : "Send reply"}
               </button>
             </form>
           </div>

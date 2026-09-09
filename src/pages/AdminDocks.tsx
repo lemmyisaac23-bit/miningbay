@@ -1,18 +1,25 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useAppState } from "../context/AppState";
 import { PLANS } from "../data/plans";
 import { daysLeft, usd } from "../lib/format";
 
 export function AdminDocks() {
   const { clients, setDockPaused, setClientBalance } = useAppState();
-  const [email, setEmail] = useState(clients[0]?.email ?? "");
-  const [amount, setAmount] = useState(clients[0]?.balanceUsd.toFixed(2) ?? "0");
+  const [email, setEmail] = useState("");
+  const [amount, setAmount] = useState("0");
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const selected = clients.find((c) => c.email === email);
   const docks = clients.flatMap((client) =>
     client.contracts.map((dock) => ({ client, dock })),
   );
+
+  useEffect(() => {
+    if (email || !clients[0]) return;
+    setEmail(clients[0].email);
+    setAmount(clients[0].balanceUsd.toFixed(2));
+  }, [clients, email]);
 
   function pick(nextEmail: string) {
     const client = clients.find((c) => c.email === nextEmail);
@@ -21,14 +28,20 @@ export function AdminDocks() {
     setMsg(null);
   }
 
-  function onSaveBalance(e: FormEvent) {
+  async function onSaveBalance(e: FormEvent) {
     e.preventDefault();
     const value = Number(amount);
     if (!email || Number.isNaN(value) || value < 0) {
       setMsg("Enter a valid credit amount.");
       return;
     }
-    setClientBalance(email, value);
+    setBusy(true);
+    const res = await setClientBalance(email, value);
+    setBusy(false);
+    if (!res.ok) {
+      setMsg(res.error || "Could not save this balance.");
+      return;
+    }
     setMsg(`Updated ${email} to ${usd(value)}.`);
   }
 
@@ -57,6 +70,9 @@ export function AdminDocks() {
             onChange={(e) => pick(e.target.value)}
             className="mt-2 w-full rounded-xl border border-line bg-white px-3 py-2"
           >
+            {clients.length === 0 && (
+              <option value="">No clients yet</option>
+            )}
             {clients.map((c) => (
               <option key={c.id} value={c.email}>
                 {c.name} · {c.email}
@@ -82,9 +98,10 @@ export function AdminDocks() {
         </label>
         <button
           type="submit"
-          className="rounded-full bg-copper px-5 py-2 text-sm font-semibold text-ink"
+          disabled={busy || !email}
+          className="rounded-full bg-copper px-5 py-2 text-sm font-semibold text-ink disabled:opacity-60"
         >
-          Save balance
+          {busy ? "Saving…" : "Save balance"}
         </button>
         {msg && <p className="text-sm text-volt">{msg}</p>}
       </form>

@@ -170,6 +170,7 @@ function ticketFromRow(row: TicketRow): Ticket {
     }));
   return {
     id: row.id,
+    userId: row.user_id,
     email: row.email,
     name: row.name,
     subject: row.subject,
@@ -477,11 +478,84 @@ async function persistClient(client: Client) {
   }
 }
 
+export async function saveClientBalance(
+  clientId: string,
+  balanceUsd: number,
+  tx: Tx,
+) {
+  if (!supabase) return { ok: true as const };
+  const bal = await supabase
+    .from("profiles")
+    .update({ balance_usd: balanceUsd })
+    .eq("id", clientId);
+  logError("save balance", bal.error);
+  if (bal.error) return { ok: false as const, error: bal.error.message };
+  const savedTx = await supabase
+    .from("txs")
+    .upsert(txPayload(clientId, tx), { onConflict: "id" });
+  logError("save balance tx", savedTx.error);
+  if (savedTx.error) return { ok: false as const, error: savedTx.error.message };
+  return { ok: true as const };
+}
+
+export async function fetchTickets(): Promise<Ticket[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("tickets")
+    .select("*, ticket_replies(*)")
+    .order("created_at", { ascending: false });
+  logError("fetch tickets", error);
+  return ((data ?? []) as TicketRow[]).map(ticketFromRow);
+}
+
+export async function saveTicket(ticket: Ticket, userId: string) {
+  if (!supabase) return { ok: true as const };
+  const { error } = await supabase.from("tickets").upsert(
+    {
+      id: ticket.id,
+      user_id: userId,
+      email: ticket.email,
+      name: ticket.name,
+      subject: ticket.subject,
+      body: ticket.body,
+      status: ticket.status,
+      created_at: iso(ticket.createdAt),
+    },
+    { onConflict: "id" },
+  );
+  logError("save ticket", error);
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const };
+}
+
+export async function saveTicketReply(reply: {
+  id: string;
+  ticketId: string;
+  from: "client" | "admin";
+  text: string;
+  at: number;
+}) {
+  if (!supabase) return { ok: true as const };
+  const { error } = await supabase.from("ticket_replies").upsert(
+    {
+      id: reply.id,
+      ticket_id: reply.ticketId,
+      from_role: reply.from,
+      body: reply.text,
+      at: iso(reply.at),
+    },
+    { onConflict: "id" },
+  );
+  logError("save reply", error);
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const };
+}
+
 async function persistTickets(tickets: Ticket[], userIdByEmail: Map<string, string>) {
   if (!supabase || tickets.length === 0) return;
   const rows = tickets
     .map((t) => {
-      const userId = userIdByEmail.get(t.email.toLowerCase());
+      const userId = t.userId || userIdByEmail.get(t.email.toLowerCase());
       if (!userId) return null;
       return {
         id: t.id,

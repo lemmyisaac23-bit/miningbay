@@ -1,18 +1,30 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useAppState } from "../context/AppState";
 
 export function Support() {
-  const { user, tickets, openTicket, replyTicket } = useAppState();
+  const { user, tickets, openTicket, replyTicket, refreshTickets } = useAppState();
   const mine = tickets.filter((t) => t.email === user?.email);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [reply, setReply] = useState("");
-  const [openId, setOpenId] = useState(mine[0]?.id ?? "");
+  const [openId, setOpenId] = useState("");
 
-  function onCreate(e: FormEvent) {
+  useEffect(() => {
+    void refreshTickets();
+    const id = window.setInterval(() => {
+      void refreshTickets();
+    }, 8000);
+    return () => window.clearInterval(id);
+  }, [refreshTickets]);
+
+  useEffect(() => {
+    if (!openId && mine[0]) setOpenId(mine[0].id);
+  }, [mine, openId]);
+
+  async function onCreate(e: FormEvent) {
     e.preventDefault();
-    const res = openTicket(subject, body);
+    const res = await openTicket(subject, body);
     if (!res.ok) {
       setMsg(res.error || "Could not open ticket.");
       return;
@@ -20,6 +32,7 @@ export function Support() {
     setSubject("");
     setBody("");
     setMsg("Ticket sent to hall leads.");
+    void refreshTickets();
   }
 
   const active = mine.find((t) => t.id === openId) ?? mine[0];
@@ -95,11 +108,13 @@ export function Support() {
               {active.status === "open" && (
                 <form
                   className="mt-4 flex gap-2"
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     if (!reply.trim()) return;
-                    replyTicket(active.id, reply.trim(), "client");
+                    const res = await replyTicket(active.id, reply.trim(), "client");
+                    if (!res.ok) return;
                     setReply("");
+                    void refreshTickets();
                   }}
                 >
                   <input

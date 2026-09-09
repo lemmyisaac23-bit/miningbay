@@ -17,6 +17,10 @@ import {
   hydrateSession,
   persistAppState,
   persistNow,
+  saveTicket,
+  saveTicketReply,
+  saveClientBalance,
+  fetchTickets,
   schedulePersist,
 } from "../lib/supabaseSync";
 
@@ -99,6 +103,7 @@ export type TicketReply = {
 
 export type Ticket = {
   id: string;
+  userId?: string;
   email: string;
   name: string;
   subject: string;
@@ -140,12 +145,23 @@ type Ctx = State & {
   withdraw: (amount: number, address?: string) => boolean;
   buyPlan: (plan: Plan) => { ok: boolean; error?: string };
   payForPlan: (plan: Plan) => { ok: boolean; error?: string };
-  setClientBalance: (email: string, balanceUsd: number) => void;
+  setClientBalance: (
+    email: string,
+    balanceUsd: number,
+  ) => Promise<{ ok: boolean; error?: string }>;
   setClientAddress: (clientId: string, address: ClientAddress) => void;
   setDockPaused: (email: string, contractId: string, paused: boolean) => void;
-  openTicket: (subject: string, body: string) => { ok: boolean; error?: string };
-  replyTicket: (id: string, text: string, from: "client" | "admin") => void;
+  openTicket: (
+    subject: string,
+    body: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  replyTicket: (
+    id: string,
+    text: string,
+    from: "client" | "admin",
+  ) => Promise<{ ok: boolean; error?: string }>;
   setTicketStatus: (id: string, status: Ticket["status"]) => void;
+  refreshTickets: () => Promise<void>;
 };
 
 const AppStateContext = createContext<Ctx | null>(null);
@@ -815,18 +831,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
-  const setClientBalance = useCallback((email: string, balanceUsd: number) => {
+  const setClientBalance = useCallback(async (email: string, balanceUsd: number) => {
+    let clientId: string | undefined;
+    let tx: Tx | undefined;
     setState((prev) => {
       const clients = prev.clients.map((c) => {
         if (c.email !== email) return c;
+        clientId = c.id;
         const delta = balanceUsd - c.balanceUsd;
+        tx = makeTx("adjust", "Hall leads balance edit", delta);
         return {
           ...c,
           balanceUsd,
-          txs: [
-            makeTx("adjust", "Hall leads balance edit", delta),
-            ...c.txs,
-          ].slice(0, 40),
+          txs: [tx, ...c.txs].slice(0, 40),
         };
       });
       const live =
@@ -841,6 +858,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           : {};
       return { ...prev, clients, ...live };
     });
+    if (supabase && clientId && tx) {
+      return saveClientBalance(clientId, balanceUsd, tx);
+    }
+    return { ok: true };
   }, []);
 
   const setClientAddress = useCallback((clientId: string, address: ClientAddress) => {
@@ -889,16 +910,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const openTicket = useCallback((subject: string, body: string) => {
-    let result: { ok: boolean; error?: string } = { ok: false };
+  const openTicket = useCallback(async (subject: string, body: string) => {
+    let ticket: Ticket | null = null;
+    let userId: string | undefined;
     setState((prev) => {
-      if (!prev.user) {
-        result = { ok: false, error: "Sign in first." };
-        return prev;
-      }
-      result = { ok: true };
-      const ticket: Ticket = {
+      if (!prev.user) return prev;
+      userId =
+        prev.clients.find(
+          (c) => c.email.toLowerCase() === prev.user!.email.toLowerCase(),
+        )?.id;
+      ticket = {
         id: uid("tkt"),
+        userId,
         email: prev.user.email,
         name: prev.user.name,
         subject,
@@ -909,11 +932,25 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       };
       return { ...prev, tickets: [ticket, ...prev.tickets] };
     });
-    return result;
+    if (!ticket) return { ok: false, error: "Sign in first." };
+    if (supabase) {
+      const { data } = await supabase.auth.getUser();
+      const uidAuth = data.user?.id || userId;
+      if (!uidAuth) return { ok: false, error: "Could not save this ticket." };
+      const saved = await saveTicket(ticket, uidAuth);
+      if (!saved.ok) return saved;
+    }
+    return { ok: true };
   }, []);
 
   const replyTicket = useCallback(
-    (id: string, text: string, from: "client" | "admin") => {
+    async (id: string, text: string, from: "client" | "admin") => {
+      const note: TicketReply = {
+        id: uid("trp"),
+        from,
+        text,
+        at: Date.now(),
+      };
       setState((prev) => ({
         ...prev,
         tickets: prev.tickets.map((t) =>
@@ -921,19 +958,49 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             ? {
                 ...t,
                 status: "open",
-                replies: [...t.replies, { id: uid("trp"), from, text, at: Date.now() }],
+                replies: [...t.replies, note],
               }
             : t,
         ),
       }));
+      if (supabase) {
+        const saved = await saveTicketReply({
+          id: note.id!,
+          ticketId: id,
+          from,
+          text,
+          at: note.at,
+        });
+        if (!saved.ok) return saved;
+      }
+      return { ok: true };
     },
     [],
   );
 
   const setTicketStatus = useCallback((id: string, status: Ticket["status"]) => {
+    setState((prev) => {
+      const next = {
+        ...prev,
+        tickets: prev.tickets.map((t) => (t.id === id ? { ...t, status } : t)),
+      };
+      void persistAppState(next);
+      return next;
+    });
+  }, []);
+
+  const refreshTickets = useCallback(async () => {
+    if (!supabase) return;
+    const tickets = await fetchTickets();
     setState((prev) => ({
       ...prev,
-      tickets: prev.tickets.map((t) => (t.id === id ? { ...t, status } : t)),
+      tickets: prev.admin
+        ? tickets
+        : tickets.filter(
+            (t) =>
+              prev.user &&
+              t.email.toLowerCase() === prev.user.email.toLowerCase(),
+          ),
     }));
   }, []);
 
@@ -956,6 +1023,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       openTicket,
       replyTicket,
       setTicketStatus,
+      refreshTickets,
     }),
     [
       state,
@@ -974,6 +1042,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       openTicket,
       replyTicket,
       setTicketStatus,
+      refreshTickets,
     ],
   );
 
