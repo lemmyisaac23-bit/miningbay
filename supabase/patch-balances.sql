@@ -1,5 +1,5 @@
--- Run once in Supabase → SQL Editor so hall-leads wallet edits stick.
--- Paste this SQL, not the file path. The wallet is profiles.balance_usd.
+-- Paste this SQL into Supabase → SQL Editor and Run.
+-- Do not paste a Windows file path.
 
 create or replace function public.is_admin()
 returns boolean
@@ -25,7 +25,30 @@ create policy "update profiles" on public.profiles
 grant select, insert, update on table public.profiles to authenticated;
 grant select, insert, update on table public.txs to authenticated;
 
-create or replace function public.admin_set_balance(p_user_id uuid, p_balance numeric)
+create or replace function public.guard_balance_usd()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.balance_usd is not distinct from old.balance_usd then
+    return new;
+  end if;
+  if current_setting('app.allow_balance', true) = '1' then
+    return new;
+  end if;
+  new.balance_usd := old.balance_usd;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_balance_usd on public.profiles;
+create trigger guard_balance_usd
+  before update on public.profiles
+  for each row execute procedure public.guard_balance_usd();
+
+drop function if exists public.admin_set_balance(uuid, numeric);
+
+create or replace function public.admin_set_balance(p_user_id text, p_balance numeric)
 returns numeric
 language plpgsql
 security definer
@@ -35,9 +58,10 @@ begin
   if not public.is_admin() then
     raise exception 'Hall leads role is required to set a wallet.';
   end if;
+  perform set_config('app.allow_balance', '1', true);
   update public.profiles
     set balance_usd = p_balance
-    where id = p_user_id;
+    where id = p_user_id::uuid;
   if not found then
     raise exception 'No profile found for that client.';
   end if;
@@ -55,6 +79,7 @@ begin
   if not public.is_admin() then
     raise exception 'Hall leads role is required to set a wallet.';
   end if;
+  perform set_config('app.allow_balance', '1', true);
   update public.profiles
     set balance_usd = p_balance
     where lower(email) = lower(p_email);
@@ -74,6 +99,7 @@ as $$
 declare
   next_balance numeric;
 begin
+  perform set_config('app.allow_balance', '1', true);
   update public.profiles
     set balance_usd = balance_usd + p_amount
     where id = auth.uid()
@@ -85,15 +111,8 @@ begin
 end;
 $$;
 
-grant execute on function public.admin_set_balance(uuid, numeric) to authenticated;
+grant execute on function public.admin_set_balance(text, numeric) to authenticated;
 grant execute on function public.admin_set_balance_by_email(text, numeric) to authenticated;
 grant execute on function public.credit_own_balance(numeric) to authenticated;
-
-do $$
-begin
-  alter publication supabase_realtime add table public.profiles;
-exception
-  when duplicate_object then null;
-end $$;
 
 notify pgrst, 'reload schema';

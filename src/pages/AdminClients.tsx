@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { useAppState } from "../context/AppState";
@@ -10,11 +10,13 @@ export function AdminClients() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [msgOk, setMsgOk] = useState(true);
 
   async function saveBalance(email: string, clientId: string) {
     const raw = drafts[clientId];
     const value = Number(raw);
     if (raw == null || Number.isNaN(value) || value < 0) {
+      setMsgOk(false);
       setMsg("Enter a valid credit amount.");
       return;
     }
@@ -22,10 +24,17 @@ export function AdminClients() {
     const res = await setClientBalance(email, value);
     setSaving(null);
     if (!res.ok) {
+      setMsgOk(false);
       setMsg(res.error || "Could not save this balance.");
       return;
     }
-    setMsg(`Updated ${email} to ${usd(value)}.`);
+    setMsgOk(true);
+    setMsg(`Saved ${usd(value)} for ${email}. Refresh should keep this amount.`);
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[clientId];
+      return next;
+    });
   }
 
   return (
@@ -38,7 +47,11 @@ export function AdminClients() {
         Latest sign-ups sit at the top. Edit a wallet here, or open Docks to
         pause a lane.
       </p>
-      {msg && <p className="mt-4 text-sm text-volt">{msg}</p>}
+      {msg && (
+        <p className={`mt-4 text-sm ${msgOk ? "text-volt" : "text-copper"}`}>
+          {msg}
+        </p>
+      )}
       <div className="mt-8 overflow-x-auto rounded-2xl border border-line bg-panel/80">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-bay text-mist">

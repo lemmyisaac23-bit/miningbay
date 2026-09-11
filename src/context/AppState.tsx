@@ -22,6 +22,7 @@ import {
   saveClientBalance,
   fetchTickets,
   fetchOwnWallet,
+  fetchClientBalances,
   noteKnownBalance,
   peekKnownBalance,
   schedulePersist,
@@ -166,6 +167,7 @@ type Ctx = State & {
   setTicketStatus: (id: string, status: Ticket["status"]) => void;
   refreshTickets: () => Promise<void>;
   refreshBalance: () => Promise<void>;
+  refreshClientBalances: () => Promise<void>;
 };
 
 const AppStateContext = createContext<Ctx | null>(null);
@@ -837,38 +839,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const setClientBalance = useCallback(async (email: string, balanceUsd: number) => {
     const target = email.trim().toLowerCase();
-    let clientId: string | undefined;
-    let tx: Tx | undefined;
+    const client = stateRef.current.clients.find(
+      (c) => c.email.toLowerCase() === target,
+    );
+    if (!client) return { ok: false, error: "Client not found." };
+    const tx = makeTx(
+      "adjust",
+      "Hall leads balance edit",
+      balanceUsd - client.balanceUsd,
+    );
+    if (supabase) {
+      const saved = await saveClientBalance(client.id, balanceUsd, tx, target);
+      if (!saved.ok) return saved;
+    }
     setState((prev) => {
-      const clients = prev.clients.map((c) => {
-        if (c.email.toLowerCase() !== target) return c;
-        clientId = c.id;
-        const delta = balanceUsd - c.balanceUsd;
-        tx = makeTx("adjust", "Hall leads balance edit", delta);
-        return {
-          ...c,
-          balanceUsd,
-          txs: [tx, ...c.txs].slice(0, 40),
-        };
-      });
-      const live =
-        prev.user?.email.toLowerCase() === target
-          ? {
-              balanceUsd,
-              txs: [
-                makeTx("adjust", "Hall leads balance edit", balanceUsd - prev.balanceUsd),
-                ...prev.txs,
-              ].slice(0, 40),
-            }
-          : {};
-      return { ...prev, clients, ...live };
+      const clients = prev.clients.map((c) =>
+        c.email.toLowerCase() === target
+          ? { ...c, balanceUsd, txs: [tx, ...c.txs].slice(0, 40) }
+          : c,
+      );
+      return { ...prev, clients };
     });
-    if (supabase && clientId && tx) {
-      return saveClientBalance(clientId, balanceUsd, tx, target);
-    }
-    if (supabase && !clientId) {
-      return { ok: false, error: "Client not found." };
-    }
     return { ok: true };
   }, []);
 
@@ -1041,6 +1032,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const refreshClientBalances = useCallback(async () => {
+    if (!supabase) return;
+    if (!stateRef.current.admin) return;
+    const rows = await fetchClientBalances();
+    if (!rows.length) return;
+    setState((prev) => ({
+      ...prev,
+      clients: prev.clients.map((c) => {
+        const row = rows.find(
+          (r) =>
+            r.id === c.id ||
+            r.email.toLowerCase() === c.email.toLowerCase(),
+        );
+        return row ? { ...c, balanceUsd: row.balanceUsd } : c;
+      }),
+    }));
+  }, []);
+
   useEffect(() => {
     if (!supabase || !authReady) return;
     if (!state.user || state.admin) return;
@@ -1079,6 +1088,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, [authReady, state.user, state.admin, refreshBalance]);
 
+  useEffect(() => {
+    if (!supabase || !authReady || !state.admin) return;
+    void refreshClientBalances();
+    const id = window.setInterval(() => {
+      void refreshClientBalances();
+    }, 8000);
+    return () => window.clearInterval(id);
+  }, [authReady, state.admin, refreshClientBalances]);
+
   const value = useMemo(
     () => ({
       ...state,
@@ -1100,6 +1118,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setTicketStatus,
       refreshTickets,
       refreshBalance,
+      refreshClientBalances,
     }),
     [
       state,
@@ -1120,6 +1139,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setTicketStatus,
       refreshTickets,
       refreshBalance,
+      refreshClientBalances,
     ],
   );
 

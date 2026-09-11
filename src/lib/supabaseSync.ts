@@ -545,6 +545,22 @@ export async function fetchProfileBalance(userId: string) {
   return num((data as { balance_usd: number | string }).balance_usd);
 }
 
+export async function fetchClientBalances() {
+  if (!supabase) return [] as { id: string; email: string; balanceUsd: number }[];
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, email, balance_usd")
+    .eq("role", "client");
+  logError("fetch client balances", error);
+  return ((data ?? []) as { id: string; email: string; balance_usd: number | string }[]).map(
+    (row) => ({
+      id: row.id,
+      email: row.email,
+      balanceUsd: num(row.balance_usd),
+    }),
+  );
+}
+
 export async function saveClientBalance(
   clientId: string,
   balanceUsd: number,
