@@ -21,6 +21,9 @@ import {
   saveTicketReply,
   saveClientBalance,
   fetchTickets,
+  fetchProfileBalance,
+  noteKnownBalance,
+  peekKnownBalance,
   schedulePersist,
 } from "../lib/supabaseSync";
 
@@ -162,6 +165,7 @@ type Ctx = State & {
   ) => Promise<{ ok: boolean; error?: string }>;
   setTicketStatus: (id: string, status: Ticket["status"]) => void;
   refreshTickets: () => Promise<void>;
+  refreshBalance: () => Promise<void>;
 };
 
 const AppStateContext = createContext<Ctx | null>(null);
@@ -832,11 +836,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setClientBalance = useCallback(async (email: string, balanceUsd: number) => {
+    const target = email.trim().toLowerCase();
     let clientId: string | undefined;
     let tx: Tx | undefined;
     setState((prev) => {
       const clients = prev.clients.map((c) => {
-        if (c.email !== email) return c;
+        if (c.email.toLowerCase() !== target) return c;
         clientId = c.id;
         const delta = balanceUsd - c.balanceUsd;
         tx = makeTx("adjust", "Hall leads balance edit", delta);
@@ -847,7 +852,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         };
       });
       const live =
-        prev.user?.email === email
+        prev.user?.email.toLowerCase() === target
           ? {
               balanceUsd,
               txs: [
@@ -860,6 +865,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
     if (supabase && clientId && tx) {
       return saveClientBalance(clientId, balanceUsd, tx);
+    }
+    if (supabase && !clientId) {
+      return { ok: false, error: "Client not found." };
     }
     return { ok: true };
   }, []);
@@ -1004,6 +1012,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const refreshBalance = useCallback(async () => {
+    if (!supabase) return;
+    const prev = stateRef.current;
+    if (!prev.user) return;
+    const me = prev.clients.find(
+      (c) => c.email.toLowerCase() === prev.user!.email.toLowerCase(),
+    );
+    if (!me) return;
+    const lastKnown = peekKnownBalance(me.id) ?? me.balanceUsd;
+    const pending = me.balanceUsd - lastKnown;
+    const server = await fetchProfileBalance(me.id);
+    if (server == null) return;
+    noteKnownBalance(me.id, server);
+    const next = server + (pending > 0 ? pending : 0);
+    setState((cur) => ({
+      ...cur,
+      balanceUsd: next,
+      clients: cur.clients.map((c) =>
+        c.id === me.id ? { ...c, balanceUsd: next } : c,
+      ),
+    }));
+  }, []);
+
   const value = useMemo(
     () => ({
       ...state,
@@ -1024,6 +1055,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       replyTicket,
       setTicketStatus,
       refreshTickets,
+      refreshBalance,
     }),
     [
       state,
@@ -1043,6 +1075,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       replyTicket,
       setTicketStatus,
       refreshTickets,
+      refreshBalance,
     ],
   );
 

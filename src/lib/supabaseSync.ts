@@ -396,6 +396,7 @@ export async function hydrateSession(
   const me =
     assembleClients([profile], grouped.contracts, grouped.txs)[0] ??
     clientFrom(profile, [], []);
+  noteKnownBalance(me.id, me.balanceUsd);
   return {
     user: userFrom(profile),
     admin: false,
@@ -470,10 +471,12 @@ function withdrawalPayload(userId: string, row: Withdrawal) {
 
 async function persistClient(client: Client) {
   if (!supabase) return;
-  const profile = await supabase
+  const { balance_usd, ...profile } = profilePayload(client);
+  void balance_usd;
+  const saved = await supabase
     .from("profiles")
-    .upsert(profilePayload(client), { onConflict: "id" });
-  logError("save profile", profile.error);
+    .upsert(profile, { onConflict: "id" });
+  logError("save profile", saved.error);
 
   if (client.contracts.length) {
     const docks = await supabase
@@ -496,24 +499,82 @@ async function persistClient(client: Client) {
   }
 }
 
+const knownBalance = new Map<string, number>();
+
+export function noteKnownBalance(userId: string, balanceUsd: number) {
+  knownBalance.set(userId, balanceUsd);
+}
+
+export function peekKnownBalance(userId: string) {
+  return knownBalance.get(userId);
+}
+
+export async function fetchProfileBalance(userId: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("balance_usd")
+    .eq("id", userId)
+    .maybeSingle();
+  logError("fetch balance", error);
+  if (error || !data) return null;
+  return num((data as { balance_usd: number | string }).balance_usd);
+}
+
 export async function saveClientBalance(
   clientId: string,
   balanceUsd: number,
   tx: Tx,
 ) {
   if (!supabase) return { ok: true as const };
-  const bal = await supabase
-    .from("profiles")
-    .update({ balance_usd: balanceUsd })
-    .eq("id", clientId);
-  logError("save balance", bal.error);
-  if (bal.error) return { ok: false as const, error: bal.error.message };
+  const rpc = await supabase.rpc("admin_set_balance", {
+    p_user_id: clientId,
+    p_balance: balanceUsd,
+  });
+  if (rpc.error) {
+    const bal = await supabase
+      .from("profiles")
+      .update({ balance_usd: balanceUsd })
+      .eq("id", clientId)
+      .select("id")
+      .maybeSingle();
+    logError("save balance", bal.error ?? rpc.error);
+    if (bal.error) return { ok: false as const, error: bal.error.message };
+    if (!bal.data) {
+      return {
+        ok: false as const,
+        error:
+          "Wallet did not save. Confirm this hall-leads account has role admin, then run patch-balances.sql.",
+      };
+    }
+  }
+  noteKnownBalance(clientId, balanceUsd);
   const savedTx = await supabase
     .from("txs")
     .upsert(txPayload(clientId, tx), { onConflict: "id" });
   logError("save balance tx", savedTx.error);
   if (savedTx.error) return { ok: false as const, error: savedTx.error.message };
   return { ok: true as const };
+}
+
+async function creditOwnBalance(client: Client) {
+  if (!supabase) return;
+  const last = knownBalance.get(client.id);
+  if (last == null) {
+    noteKnownBalance(client.id, client.balanceUsd);
+    return;
+  }
+  const delta = client.balanceUsd - last;
+  if (Math.abs(delta) < 0.0000001) return;
+  const { data, error } = await supabase.rpc("credit_own_balance", {
+    p_amount: delta,
+  });
+  if (error) {
+    logError("credit balance", error);
+    return;
+  }
+  const next = data == null ? client.balanceUsd : num(data);
+  noteKnownBalance(client.id, next);
 }
 
 export async function fetchTickets(): Promise<Ticket[]> {
@@ -638,7 +699,7 @@ export async function persistAppState(state: State) {
   }
 
   const toSave = state.admin
-    ? clients
+    ? []
     : clients.filter(
         (c) =>
           state.user &&
@@ -646,6 +707,7 @@ export async function persistAppState(state: State) {
       );
 
   await Promise.all(toSave.map((client) => persistClient(client)));
+  await Promise.all(toSave.map((client) => creditOwnBalance(client)));
   await persistTickets(state.tickets, userIdByEmail);
   await persistWithdrawals(state.withdrawals ?? [], userIdByEmail);
 }
