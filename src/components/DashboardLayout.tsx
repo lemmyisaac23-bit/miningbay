@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Navigate, NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -34,18 +33,9 @@ const NAV = [
 ];
 
 export function DashboardLayout() {
-  const { user, logout, balanceUsd, clients, authReady, refreshBalance } =
-    useAppState();
+  const { user, logout, balanceUsd, clients, authReady } = useAppState();
   const { dark, toggleDark } = useTheme();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    void refreshBalance();
-    const id = window.setInterval(() => {
-      void refreshBalance();
-    }, 8000);
-    return () => window.clearInterval(id);
-  }, [refreshBalance]);
 
   if (!authReady) {
     return (

@@ -21,7 +21,7 @@ import {
   saveTicketReply,
   saveClientBalance,
   fetchTickets,
-  fetchProfileBalance,
+  fetchOwnWallet,
   noteKnownBalance,
   peekKnownBalance,
   schedulePersist,
@@ -864,7 +864,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       return { ...prev, clients, ...live };
     });
     if (supabase && clientId && tx) {
-      return saveClientBalance(clientId, balanceUsd, tx);
+      return saveClientBalance(clientId, balanceUsd, tx, target);
     }
     if (supabase && !clientId) {
       return { ok: false, error: "Client not found." };
@@ -1015,25 +1015,69 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const refreshBalance = useCallback(async () => {
     if (!supabase) return;
     const prev = stateRef.current;
-    if (!prev.user) return;
+    if (!prev.user || prev.admin) return;
+    const wallet = await fetchOwnWallet();
+    if (!wallet) return;
     const me = prev.clients.find(
-      (c) => c.email.toLowerCase() === prev.user!.email.toLowerCase(),
+      (c) =>
+        c.id === wallet.userId ||
+        c.email.toLowerCase() === prev.user!.email.toLowerCase(),
     );
-    if (!me) return;
-    const lastKnown = peekKnownBalance(me.id) ?? me.balanceUsd;
-    const pending = me.balanceUsd - lastKnown;
-    const server = await fetchProfileBalance(me.id);
-    if (server == null) return;
-    noteKnownBalance(me.id, server);
-    const next = server + (pending > 0 ? pending : 0);
+    const local = me?.balanceUsd ?? prev.balanceUsd;
+    const lastKnown = peekKnownBalance(wallet.userId) ?? local;
+    const pending = local - lastKnown;
+    noteKnownBalance(wallet.userId, wallet.balanceUsd);
+    const next = wallet.balanceUsd + (pending > 0 ? pending : 0);
     setState((cur) => ({
       ...cur,
       balanceUsd: next,
+      txs: wallet.txs,
       clients: cur.clients.map((c) =>
-        c.id === me.id ? { ...c, balanceUsd: next } : c,
+        c.id === wallet.userId ||
+        c.email.toLowerCase() === cur.user?.email.toLowerCase()
+          ? { ...c, balanceUsd: next, txs: wallet.txs }
+          : c,
       ),
     }));
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !authReady) return;
+    if (!state.user || state.admin) return;
+    void refreshBalance();
+    const interval = window.setInterval(() => {
+      void refreshBalance();
+    }, 4000);
+    const onShow = () => {
+      if (document.visibilityState === "visible") void refreshBalance();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    const userId = state.clients.find(
+      (c) => c.email.toLowerCase() === state.user!.email.toLowerCase(),
+    )?.id;
+    const channel = userId
+      ? supabase
+          .channel(`profile-balance-${userId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `id=eq.${userId}`,
+            },
+            () => {
+              void refreshBalance();
+            },
+          )
+          .subscribe()
+      : null;
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onShow);
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [authReady, state.user, state.admin, refreshBalance]);
 
   const value = useMemo(
     () => ({

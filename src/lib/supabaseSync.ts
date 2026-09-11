@@ -509,6 +509,30 @@ export function peekKnownBalance(userId: string) {
   return knownBalance.get(userId);
 }
 
+export async function fetchOwnWallet() {
+  if (!supabase) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return null;
+  const [profile, txs] = await Promise.all([
+    supabase.from("profiles").select("balance_usd").eq("id", userId).maybeSingle(),
+    supabase
+      .from("txs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("at", { ascending: false })
+      .limit(40),
+  ]);
+  logError("fetch own balance", profile.error);
+  logError("fetch own txs", txs.error);
+  if (profile.error || !profile.data) return null;
+  return {
+    userId,
+    balanceUsd: num((profile.data as { balance_usd: number | string }).balance_usd),
+    txs: ((txs.data ?? []) as TxRow[]).map(txFromRow),
+  };
+}
+
 export async function fetchProfileBalance(userId: string) {
   if (!supabase) return null;
   const { data, error } = await supabase
@@ -525,33 +549,65 @@ export async function saveClientBalance(
   clientId: string,
   balanceUsd: number,
   tx: Tx,
+  email?: string,
 ) {
   if (!supabase) return { ok: true as const };
+  const normalized = email?.trim().toLowerCase();
   const rpc = await supabase.rpc("admin_set_balance", {
     p_user_id: clientId,
     p_balance: balanceUsd,
   });
+  if (rpc.error && normalized) {
+    await supabase.rpc("admin_set_balance_by_email", {
+      p_email: normalized,
+      p_balance: balanceUsd,
+    });
+  }
   if (rpc.error) {
-    const bal = await supabase
+    const byId = await supabase
       .from("profiles")
       .update({ balance_usd: balanceUsd })
       .eq("id", clientId)
-      .select("id")
-      .maybeSingle();
-    logError("save balance", bal.error ?? rpc.error);
-    if (bal.error) return { ok: false as const, error: bal.error.message };
-    if (!bal.data) {
-      return {
-        ok: false as const,
-        error:
-          "Wallet did not save. Confirm this hall-leads account has role admin, then run patch-balances.sql.",
-      };
+      .select("id, balance_usd");
+    if (!byId.data?.length && normalized) {
+      const byEmail = await supabase
+        .from("profiles")
+        .update({ balance_usd: balanceUsd })
+        .eq("email", normalized)
+        .select("id, balance_usd");
+      logError("save balance", byEmail.error ?? byId.error ?? rpc.error);
+    } else {
+      logError("save balance", byId.error ?? rpc.error);
     }
   }
-  noteKnownBalance(clientId, balanceUsd);
+  let verify = await supabase
+    .from("profiles")
+    .select("id, balance_usd")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (!verify.data && normalized) {
+    verify = await supabase
+      .from("profiles")
+      .select("id, balance_usd")
+      .eq("email", normalized)
+      .maybeSingle();
+  }
+  const savedBalance = verify.data
+    ? num((verify.data as { balance_usd: number | string }).balance_usd)
+    : null;
+  if (savedBalance == null || Math.abs(savedBalance - balanceUsd) > 0.009) {
+    return {
+      ok: false as const,
+      error:
+        "Wallet did not save on the server. Run the balance SQL in Supabase SQL Editor (paste the SQL, not the file path).",
+    };
+  }
+  const profileId =
+    (verify.data as { id?: string } | null)?.id ?? clientId;
+  noteKnownBalance(profileId, savedBalance);
   const savedTx = await supabase
     .from("txs")
-    .upsert(txPayload(clientId, tx), { onConflict: "id" });
+    .upsert(txPayload(profileId, tx), { onConflict: "id" });
   logError("save balance tx", savedTx.error);
   if (savedTx.error) return { ok: false as const, error: savedTx.error.message };
   return { ok: true as const };

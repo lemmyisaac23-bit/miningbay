@@ -1,5 +1,20 @@
 -- Run once in Supabase → SQL Editor so hall-leads wallet edits stick.
--- Do not create a new table. The wallet is profiles.balance_usd.
+-- Paste this SQL, not the file path. The wallet is profiles.balance_usd.
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$;
+
+grant execute on function public.is_admin() to authenticated;
 
 drop policy if exists "update profiles" on public.profiles;
 create policy "update profiles" on public.profiles
@@ -30,6 +45,26 @@ begin
 end;
 $$;
 
+create or replace function public.admin_set_balance_by_email(p_email text, p_balance numeric)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Hall leads role is required to set a wallet.';
+  end if;
+  update public.profiles
+    set balance_usd = p_balance
+    where lower(email) = lower(p_email);
+  if not found then
+    raise exception 'No profile found for that client.';
+  end if;
+  return p_balance;
+end;
+$$;
+
 create or replace function public.credit_own_balance(p_amount numeric)
 returns numeric
 language plpgsql
@@ -51,6 +86,14 @@ end;
 $$;
 
 grant execute on function public.admin_set_balance(uuid, numeric) to authenticated;
+grant execute on function public.admin_set_balance_by_email(text, numeric) to authenticated;
 grant execute on function public.credit_own_balance(numeric) to authenticated;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.profiles;
+exception
+  when duplicate_object then null;
+end $$;
 
 notify pgrst, 'reload schema';
