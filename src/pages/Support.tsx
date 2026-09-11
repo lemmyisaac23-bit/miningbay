@@ -3,7 +3,9 @@ import { useAppState } from "../context/AppState";
 
 export function Support() {
   const { user, tickets, openTicket, replyTicket, refreshTickets } = useAppState();
-  const mine = tickets.filter((t) => t.email === user?.email);
+  const mine = tickets.filter(
+    (t) => t.email.toLowerCase() === (user?.email ?? "").toLowerCase(),
+  );
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -98,11 +100,21 @@ export function Support() {
                 {active.status}
               </p>
               <p className="mt-2 text-sm">{active.body}</p>
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 space-y-3">
+                {active.replies.length === 0 && (
+                  <p className="text-sm text-mist">No replies yet.</p>
+                )}
                 {active.replies.map((r, i) => (
-                  <p key={`${r.at}-${i}`} className="text-sm text-mist">
-                    <span className="text-volt">{r.from}:</span> {r.text}
-                  </p>
+                  <div
+                    key={r.id ?? `${r.at}-${i}`}
+                    className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
+                  >
+                    <p className="text-xs uppercase tracking-[0.16em] text-mist">
+                      {r.from === "admin" ? "Hall leads" : "You"} ·{" "}
+                      {new Date(r.at).toLocaleString()}
+                    </p>
+                    <p className="mt-1">{r.text}</p>
+                  </div>
                 ))}
               </div>
               {active.status === "open" && (

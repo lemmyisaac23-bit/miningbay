@@ -289,6 +289,26 @@ export async function ensureProfile(
   return row;
 }
 
+async function fetchTicketRows(): Promise<TicketRow[]> {
+  if (!supabase) return [];
+  const [tickets, replies] = await Promise.all([
+    supabase.from("tickets").select("*").order("created_at", { ascending: false }),
+    supabase.from("ticket_replies").select("*").order("at", { ascending: true }),
+  ]);
+  logError("tickets", tickets.error);
+  logError("ticket replies", replies.error);
+  const byTicket = new Map<string, ReplyRow[]>();
+  for (const row of (replies.data ?? []) as ReplyRow[]) {
+    const list = byTicket.get(row.ticket_id) ?? [];
+    list.push(row);
+    byTicket.set(row.ticket_id, list);
+  }
+  return ((tickets.data ?? []) as TicketRow[]).map((row) => ({
+    ...row,
+    ticket_replies: byTicket.get(row.id) ?? [],
+  }));
+}
+
 async function loadGrouped() {
   if (!supabase) {
     return {
@@ -304,22 +324,18 @@ async function loadGrouped() {
     supabase.from("contracts").select("*"),
     supabase.from("txs").select("*").order("at", { ascending: false }),
     supabase.from("withdrawals").select("*").order("at", { ascending: false }),
-    supabase
-      .from("tickets")
-      .select("*, ticket_replies(*)")
-      .order("created_at", { ascending: false }),
+    fetchTicketRows(),
   ]);
   logError("profiles", profiles.error);
   logError("contracts", contracts.error);
   logError("txs", txs.error);
   logError("withdrawals", withdrawals.error);
-  logError("tickets", tickets.error);
   return {
     profiles: (profiles.data ?? []) as ProfileRow[],
     contracts: (contracts.data ?? []) as ContractRow[],
     txs: (txs.data ?? []) as TxRow[],
     withdrawals: (withdrawals.data ?? []) as WithdrawalRow[],
-    tickets: (tickets.data ?? []) as TicketRow[],
+    tickets,
   };
 }
 
@@ -388,7 +404,9 @@ export async function hydrateSession(
     txs: me.txs,
     referralCode: me.referralCode,
     clients: [me],
-    tickets: tickets.filter((t) => t.email === profile.email),
+    tickets: tickets.filter(
+      (t) => t.email.toLowerCase() === profile.email.toLowerCase(),
+    ),
     withdrawals: withdrawals.filter((w) => w.email === profile.email),
     pausedDockIds: pausedIds([me]),
   };
@@ -499,13 +517,8 @@ export async function saveClientBalance(
 }
 
 export async function fetchTickets(): Promise<Ticket[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("tickets")
-    .select("*, ticket_replies(*)")
-    .order("created_at", { ascending: false });
-  logError("fetch tickets", error);
-  return ((data ?? []) as TicketRow[]).map(ticketFromRow);
+  const rows = await fetchTicketRows();
+  return rows.map(ticketFromRow);
 }
 
 export async function saveTicket(ticket: Ticket, userId: string) {
