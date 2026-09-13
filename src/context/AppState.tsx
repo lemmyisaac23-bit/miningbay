@@ -1086,7 +1086,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onShow);
-      if (channel) void supabase.removeChannel(channel);
+      if (channel && supabase) void supabase.removeChannel(channel);
     };
   }, [authReady, state.user, state.admin, refreshBalance]);
 
