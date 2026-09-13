@@ -22,6 +22,7 @@ import { WithdrawLogPage } from "./pages/WithdrawLog";
 import { PayPage } from "./pages/Pay";
 import { Referrals } from "./pages/Referrals";
 import { Support } from "./pages/Support";
+import { OwnADock } from "./pages/OwnADock";
 import { AdminLayout } from "./components/AdminLayout";
 import { AdminClients } from "./pages/AdminClients";
 import { AdminDocks } from "./pages/AdminDocks";
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="pay" element={<PayPage />} />
             <Route path="referrals" element={<Referrals />} />
             <Route path="support" element={<Support />} />
+            <Route path="own-a-dock" element={<OwnADock />} />
             <Route path="address" element={<CompleteProfile />} />
           </Route>
           <Route path="/admin" element={<AdminLayout />}>

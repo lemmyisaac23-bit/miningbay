@@ -1,8 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAppState } from "../context/AppState";
+import { dockInquireCopy, OWN_DOCKS } from "../data/ownDocks";
 
 export function Support() {
   const { user, tickets, openTicket, replyTicket, refreshTickets } = useAppState();
+  const [params] = useSearchParams();
   const mine = tickets.filter(
     (t) => t.email.toLowerCase() === (user?.email ?? "").toLowerCase(),
   );
@@ -11,6 +14,7 @@ export function Support() {
   const [msg, setMsg] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [openId, setOpenId] = useState("");
+  const inquireDock = OWN_DOCKS.find((d) => d.id === params.get("dock"));
 
   useEffect(() => {
     void refreshTickets();
@@ -23,6 +27,13 @@ export function Support() {
   useEffect(() => {
     if (!openId && mine[0]) setOpenId(mine[0].id);
   }, [mine, openId]);
+
+  useEffect(() => {
+    if (!inquireDock) return;
+    const copy = dockInquireCopy(inquireDock);
+    setSubject(copy.subject);
+    setBody(copy.body);
+  }, [inquireDock]);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -45,6 +56,12 @@ export function Support() {
         Support
       </p>
       <h1 className="mt-2 font-display text-4xl">Talk to hall leads</h1>
+      {inquireDock && (
+        <p className="mt-3 text-sm text-mist">
+          Inquiry for {inquireDock.name} · {inquireDock.housing}. Send this
+          ticket and hall leads will reply.
+        </p>
+      )}
       <form
         onSubmit={onCreate}
         className="mt-8 max-w-lg space-y-4 rounded-2xl border border-line bg-panel/80 p-6"

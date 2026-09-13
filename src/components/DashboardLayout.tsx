@@ -14,10 +14,13 @@ import {
   Sun,
   Check,
   Home,
+  Warehouse,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { OwnDockCard } from "./OwnDockCard";
 import { useAppState } from "../context/AppState";
 import { useTheme } from "../context/Theme";
+import { OWN_DOCKS } from "../data/ownDocks";
 import { usd } from "../lib/format";
 
 const NAV = [
@@ -30,6 +33,7 @@ const NAV = [
   { to: "/app/withdraw-log", label: "Withdraw Log", icon: ClipboardList },
   { to: "/app/referrals", label: "Referrals", icon: Gift },
   { to: "/app/support", label: "Support", icon: LifeBuoy },
+  { to: "/app/own-a-dock", label: "Own a dock", icon: Warehouse },
 ];
 
 export function DashboardLayout() {
@@ -54,7 +58,7 @@ export function DashboardLayout() {
 
   return (
     <div className="relative min-h-screen text-ink md:grid md:grid-cols-[240px_1fr]">
-      <aside className="border-b border-line bg-panel md:border-b-0 md:border-r">
+      <aside className="border-b border-line bg-panel md:sticky md:top-0 md:h-screen md:overflow-y-auto md:border-b-0 md:border-r">
         <div className="flex items-center justify-between px-4 py-4 md:block">
           <NavLink to="/">
             <Logo />
@@ -115,6 +119,16 @@ export function DashboardLayout() {
           >
             <LogOut size={14} /> Sign out
           </button>
+          <div className="mt-5 border-t border-line pt-4">
+            <p className="px-1 font-display text-[11px] font-bold uppercase tracking-[0.18em] text-volt">
+              Own a dock
+            </p>
+            <div className="mt-3 space-y-3">
+              {OWN_DOCKS.map((dock) => (
+                <OwnDockCard key={dock.id} dock={dock} compact />
+              ))}
+            </div>
+          </div>
         </div>
       </aside>
       <div>
