@@ -100,6 +100,11 @@ function num(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function ledgerBalance(profileBalance: number, txs: Tx[]) {
+  const net = txs.reduce((sum, tx) => sum + tx.amountUsd, 0);
+  return Math.max(profileBalance, Number(net.toFixed(2)));
+}
+
 function ms(value: string | null | undefined) {
   if (!value) return Date.now();
   const t = new Date(value).getTime();
@@ -196,7 +201,7 @@ function clientFrom(
     country: row.country,
     address: addressOf(row),
     profileVerified: row.profile_verified,
-    balanceUsd: num(row.balance_usd),
+    balanceUsd: ledgerBalance(num(row.balance_usd), txs),
     contracts,
     txs,
     referralCode: row.referral_code,
@@ -520,16 +525,19 @@ export async function fetchOwnWallet() {
       .from("txs")
       .select("*")
       .eq("user_id", userId)
-      .order("at", { ascending: false })
-      .limit(40),
+      .order("at", { ascending: false }),
   ]);
   logError("fetch own balance", profile.error);
   logError("fetch own txs", txs.error);
-  if (profile.error || !profile.data) return null;
+  if (profile.error && !txs.data) return null;
+  const list = ((txs.data ?? []) as TxRow[]).map(txFromRow);
+  const stored = profile.data
+    ? num((profile.data as { balance_usd: number | string }).balance_usd)
+    : 0;
   return {
     userId,
-    balanceUsd: num((profile.data as { balance_usd: number | string }).balance_usd),
-    txs: ((txs.data ?? []) as TxRow[]).map(txFromRow),
+    balanceUsd: ledgerBalance(stored, list),
+    txs: list.slice(0, 40),
   };
 }
 
@@ -547,16 +555,23 @@ export async function fetchProfileBalance(userId: string) {
 
 export async function fetchClientBalances() {
   if (!supabase) return [] as { id: string; email: string; balanceUsd: number }[];
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, email, balance_usd")
-    .eq("role", "client");
-  logError("fetch client balances", error);
-  return ((data ?? []) as { id: string; email: string; balance_usd: number | string }[]).map(
+  const [profiles, txs] = await Promise.all([
+    supabase.from("profiles").select("id, email, balance_usd").eq("role", "client"),
+    supabase.from("txs").select("user_id, amount_usd"),
+  ]);
+  logError("fetch client balances", profiles.error);
+  logError("fetch client balance txs", txs.error);
+  const net = new Map<string, number>();
+  for (const row of (txs.data ?? []) as { user_id: string; amount_usd: number | string }[]) {
+    net.set(row.user_id, (net.get(row.user_id) ?? 0) + num(row.amount_usd));
+  }
+  return ((profiles.data ?? []) as { id: string; email: string; balance_usd: number | string }[]).map(
     (row) => ({
       id: row.id,
       email: row.email,
-      balanceUsd: num(row.balance_usd),
+      balanceUsd: ledgerBalance(num(row.balance_usd), [
+        { amountUsd: net.get(row.id) ?? 0 } as Tx,
+      ]),
     }),
   );
 }

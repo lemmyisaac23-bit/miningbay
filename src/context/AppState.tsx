@@ -339,7 +339,9 @@ function settleClients(
 
 function applySettled(prev: State, clients: Client[]): State {
   const live = prev.user
-    ? clients.find((c) => c.email === prev.user!.email)
+    ? clients.find(
+        (c) => c.email.toLowerCase() === prev.user!.email.toLowerCase(),
+      )
     : undefined;
   return {
     ...prev,
