@@ -16,15 +16,13 @@ export function OwnDockCard({
         compact ? "" : "flex flex-col"
       }`}
     >
-      <img
-        src={dock.image}
-        alt={dock.alt}
-        className={
-          compact
-            ? "h-24 w-full object-cover"
-            : "h-52 w-full object-cover md:h-60"
-        }
-      />
+      {!compact && (
+        <img
+          src={dock.image}
+          alt={dock.alt}
+          className="h-52 w-full object-cover md:h-60"
+        />
+      )}
       <div className={compact ? "p-2.5" : "flex flex-1 flex-col px-5 py-4"}>
         <h3
           className={`font-display font-extrabold ${
