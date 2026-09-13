@@ -10,10 +10,6 @@ export function OwnADock() {
       <h1 className="mt-2 font-display text-4xl font-extrabold">
         Buy a hall dock
       </h1>
-      <p className="mt-3 max-w-lg text-mist">
-        Three ASIC docks, each in 7x40 Feet containers. Buy opens a Support
-        inquiry for hall leads — nothing is charged until they reply.
-      </p>
       <div className="mt-8 grid gap-5 md:grid-cols-3">
         {OWN_DOCKS.map((dock) => (
           <OwnDockCard key={dock.id} dock={dock} />
