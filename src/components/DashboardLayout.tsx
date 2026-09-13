@@ -109,17 +109,7 @@ export function DashboardLayout() {
             {dark ? <Sun size={16} /> : <Moon size={16} />}
             {dark ? "Light mode" : "Dark mode"}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              navigate("/");
-            }}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-mist hover:text-ink"
-          >
-            <LogOut size={14} /> Sign out
-          </button>
-          <div className="mt-5 border-t border-line pt-4">
+          <div className="border-t border-line pt-4">
             <p className="px-1 font-display text-[11px] font-bold uppercase tracking-[0.18em] text-volt">
               Own a dock
             </p>
@@ -129,6 +119,16 @@ export function DashboardLayout() {
               ))}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              navigate("/");
+            }}
+            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-mist hover:text-ink"
+          >
+            <LogOut size={14} /> Sign out
+          </button>
         </div>
       </aside>
       <div>
